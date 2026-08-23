@@ -52,6 +52,15 @@ def load_env() -> None:
         os.environ.setdefault(key, val)
 
 
+def clean_env(key: str, default: str = "") -> str:
+    """os.environ value with any inline `# comment` and whitespace stripped.
+    Needed because the Makefile's `-include .env; export` keeps trailing
+    `   # comment` text as part of the value (this corrupted the webhook
+    secret and cost us a debugging round — trust nothing make exports)."""
+    val = os.environ.get(key, default)
+    return val.split("#", 1)[0].strip().strip('"').strip("'")
+
+
 def http(method: str, url: str, body: bytes | None = None,
          headers: dict | None = None, timeout: float = 30.0):
     """Return (status_code, parsed_json_or_None). Never raises on HTTP errors."""
@@ -87,8 +96,8 @@ def stripe_signature(payload: bytes, secret: str, ts: int | None = None) -> str:
 
 def main() -> int:
     load_env()
-    base = os.environ.get("MODAL_SERVE_URL", "").rstrip("/")
-    whsec = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    base = clean_env("MODAL_SERVE_URL").rstrip("/")
+    whsec = clean_env("STRIPE_WEBHOOK_SECRET")
     if not base:
         print("MODAL_SERVE_URL not set (.env) — cannot run"); return 2
     if not whsec:
@@ -152,7 +161,7 @@ def main() -> int:
 
     # 5. ask -> 200 {job_id} + debit to 9 (no refund on failure; see docstring)
     code, body = post_json(f"{base}/api/ask",
-                           {"user_id": user, "episode_id": "ep-000",
+                           {"user_id": user, "episode_id": os.environ.get("TEST_EPISODE", "ep-001"),
                             "question": "test"})
     job_id = (body or {}).get("job_id")
     ask_ok = code == 200 and bool(job_id)

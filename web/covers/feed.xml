@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
+  <channel>
+    <title>Repo Radio</title>
+    <link>/</link>
+    <description>We read the code of trending repos so you don't have to.</description>
+    <language>en-us</language>
+    <itunes:image href="https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/covers/ep-002.svg"/>
+<item>
+      <title>The Dot Mac's Claude-Mem: Memory Management Made Memorable</title>
+      <description>thedotmack/claude-mem — verdict MIXED. We read the code of trending repos so you don't have to.</description>
+      <guid isPermaLink="false">ep-002</guid>
+      <pubDate>Sun, 23 Aug 2026 00:00:00 +0000</pubDate>
+      <enclosure url="/audio/ep-002.mp3" length="0" type="audio/mpeg"/>
+    <itunes:image href="https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/covers/ep-002.svg"/>
+</item>
+    <item>
+      <title>Fuxi: The Ghost in the Shell?</title>
+      <description>fuxicodex/Fuxi — verdict HYPE. We read the code of trending repos so you don't have to.</description>
+      <guid isPermaLink="false">ep-001</guid>
+      <pubDate>Sun, 23 Aug 2026 00:00:00 +0000</pubDate>
+      <enclosure url="/audio/ep-001.mp3" length="0" type="audio/mpeg"/>
+    <itunes:image href="https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/covers/ep-001.svg"/>
+</item>
+    <item>
+      <title>Caveman: 4,000 stars and a six-line memory</title>
+      <description>cavemanlabs/caveman — verdict MIXED. We read the code of trending repos so you don't have to.</description>
+      <guid isPermaLink="false">ep-000</guid>
+      <pubDate>Sat, 22 Aug 2026 00:00:00 +0000</pubDate>
+      <enclosure url="/audio/ep-000.mp3" length="0" type="audio/mpeg"/>
+    <itunes:image href="https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/covers/ep-000.svg"/>
+</item>
+  </channel>
+</rss>
