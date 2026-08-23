@@ -18,7 +18,6 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -61,9 +60,11 @@ def _request(method: str, url: str, body: dict | None = None, timeout: int = 120
         return json.load(resp)
 
 
-def _run_dir() -> Path:
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    d = RUNS_DIR / stamp
+def _run_dir(repo: str) -> Path:
+    """runs/<owner__name>/ — cache key is the repo, not the timestamp, so a
+    second bake of the same repo hits cache instead of re-querying Greptile.
+    """
+    d = RUNS_DIR / repo.replace("/", "__")
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -107,7 +108,17 @@ def query(repo: str, question: str, branch: str = "main", genius: bool = True) -
 
 
 def run_battery(repo: str, branch: str = "main", skip_index: bool = False) -> dict:
-    """Index (unless skipped) then run the 5-query battery. Persists raw output to runs/."""
+    """Index (unless skipped) then run the 5-query battery.
+
+    Raw responses are cached at runs/<owner__name>/greptile.json — if a cached
+    response for this repo already exists, it's returned as-is and Greptile
+    is never re-queried (PRD §3.2: "never re-query what you already have").
+    """
+    out = _run_dir(repo) / "greptile.json"
+    if not _use_mocks() and out.exists():
+        print(f"  greptile findings ← cached {out}", file=sys.stderr)
+        return json.loads(out.read_text())
+
     if _use_mocks():
         findings = json.loads(FIXTURE.read_text())
     else:
@@ -117,7 +128,6 @@ def run_battery(repo: str, branch: str = "main", skip_index: bool = False) -> di
         for i, q in enumerate(BATTERY, 1):
             print(f"  battery {i}/5 (genius=True)…", file=sys.stderr)
             findings["battery"].append(query(repo, q, branch, genius=True))
-    out = _run_dir() / "greptile.json"
     out.write_text(json.dumps(findings, indent=2))
     print(f"  greptile findings → {out}", file=sys.stderr)
     return findings

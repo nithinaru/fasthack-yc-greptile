@@ -1,23 +1,31 @@
-"""Ask-the-host flow (contracts/wallet_api.md): debit 1 credit → answer job.
+"""Ask-the-host flow (PRD §3.4/§3.5). The wallet debit happens in app.py before
+a job is created; this module only builds the answer.
 
-Mock mode (USE_MOCKS=1): the job completes immediately with a canned qa_segment
-built from fixtures/ep-000.json — a real citation with real code_html and the
-fixture MP3 as audio, so Lane C can render + play the full loop with no backend
-dependencies. Live mode (D4): Greptile (genius:false) → Modal /script (answer
-mode) → Modal /tts → S3, filled in when ENDPOINTS.md lands.
+Mock mode (USE_MOCKS=1): the job completes after a short simulated delay with a
+canned qa_segment built from fixtures/ep-000.json — a real citation with real
+code_html and the fixture MP3 as audio, so the frontend can render + play the
+full loop with no backend dependencies.
+
+Live mode (USE_MOCKS=0): Greptile (genius:false) -> Modal /script (mode:
+"answer") -> Modal /tts -> publish qa_segment onto the served static dir.
+Guards clean errors if URLs/keys are missing rather than crashing weirdly.
 """
 import json
 import logging
 import threading
+import time
 import uuid
 
 import settings
 
 log = logging.getLogger("server.ask")
 
-# In-memory job store (PRD sanctions this; App Runner runs a single container).
+# In-memory job store (fine for a single-process demo deploy). Jobs "complete"
+# on first status poll after a short simulated delay in mock mode.
 _jobs: dict[str, dict] = {}
 _jobs_lock = threading.Lock()
+
+MOCK_DELAY_S = 1.5
 
 
 def _mock_qa_segment(question: str) -> dict:
@@ -56,6 +64,7 @@ def create_job(user_id: str, episode_id: str, question: str) -> str:
             "user_id": user_id,
             "episode_id": episode_id,
             "question": question,
+            "created": time.monotonic(),
         }
     return job_id
 
@@ -72,6 +81,7 @@ def run_job(job_id: str) -> None:
         return
     try:
         if settings.USE_MOCKS:
+            time.sleep(MOCK_DELAY_S)  # simulate script+tts latency for the UI
             qa = _mock_qa_segment(job["question"])
         else:
             qa = _live_answer(job)
@@ -94,21 +104,17 @@ def _post_json(url: str, body: dict, timeout: float = 120.0) -> dict:
 
 
 def _load_episode(episode_id: str) -> dict:
-    """Episode JSON from S3 (live source of truth); fixtures as fallback so the
-    flow still works right after a fresh deploy with only ep-000 baked."""
-    import boto3
-
-    try:
-        obj = boto3.client("s3", region_name=settings.AWS_REGION).get_object(
-            Bucket=settings.S3_BUCKET, Key=f"episodes/{episode_id}.json"
-        )
-        return json.loads(obj["Body"].read())
-    except Exception as e:
-        fixture = settings.FIXTURES_DIR / f"{episode_id}.json"
-        if fixture.exists():
-            log.warning("episode %s not in S3 (%s); using fixture", episode_id, e)
-            return json.loads(fixture.read_text())
-        raise
+    """Episode JSON from the served static dir (live source of truth), with
+    fixtures as a fallback so the flow still works right after a fresh deploy
+    with only ep-000 baked."""
+    published = settings.DATA_DIR / "episodes" / f"{episode_id}.json"
+    if published.exists():
+        return json.loads(published.read_text())
+    fixture = settings.FIXTURES_DIR / f"{episode_id}.json"
+    if fixture.exists():
+        log.warning("episode %s not published yet; using fixture", episode_id)
+        return json.loads(fixture.read_text())
+    raise FileNotFoundError(f"episode {episode_id} not found in {settings.DATA_DIR} or fixtures")
 
 
 def _assemble_wav(tts_segments: list[dict], gap_s: float = 0.35) -> tuple[bytes, list[float]]:
@@ -141,16 +147,19 @@ def _assemble_wav(tts_segments: list[dict], gap_s: float = 0.35) -> tuple[bytes,
 
 
 def _live_answer(job: dict) -> dict:
-    """D4 live path: Greptile (genius:false) → Modal /script (answer mode) →
-    Modal /tts → assemble WAV → S3. Needs MODAL_* URLs (modal_apps/ENDPOINTS.md)
-    and live keys in the environment."""
-    import boto3
-
+    """Live path: Greptile (genius:false) -> Modal /script (mode:"answer") ->
+    Modal /tts -> assemble WAV -> publish onto the served static dir. Needs
+    MODAL_SCRIPT_URL / MODAL_TTS_URL and Greptile/GitHub keys in the environment."""
     import qa_render
-    from pipeline import greptile  # the ONE sanctioned cross-lane import
+    from pipeline import greptile  # the one sanctioned cross-module import
 
     if not settings.MODAL_SCRIPT_URL or not settings.MODAL_TTS_URL:
-        raise RuntimeError("MODAL_SCRIPT_URL / MODAL_TTS_URL unset — see modal_apps/ENDPOINTS.md")
+        raise RuntimeError(
+            "MODAL_SCRIPT_URL / MODAL_TTS_URL unset — deploy modal_apps/script.py "
+            "and modal_apps/tts.py and set their URLs in .env"
+        )
+    if not settings.GREPTILE_API_KEY or not settings.GITHUB_TOKEN:
+        raise RuntimeError("GREPTILE_API_KEY / GITHUB_TOKEN unset — cannot answer live questions")
 
     episode = _load_episode(job["episode_id"])
     repo = episode["repo"]["full_name"]
@@ -170,11 +179,10 @@ def _live_answer(job: dict) -> dict:
     wav_bytes, starts = _assemble_wav(tts["segments"])
     durations = [s["duration_s"] for s in tts["segments"]]
 
-    key = f"audio/{job['episode_id']}-qa-{uuid.uuid4().hex[:8]}.wav"
-    boto3.client("s3", region_name=settings.AWS_REGION).put_object(
-        Bucket=settings.S3_BUCKET, Key=key, Body=wav_bytes,
-        ContentType="audio/wav", CacheControl="public, max-age=31536000",
-    )
+    audio_dir = settings.DATA_DIR / "audio"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{job['episode_id']}-qa-{uuid.uuid4().hex[:8]}.wav"
+    (audio_dir / filename).write_bytes(wav_bytes)
 
     segments = []
     for i, s in enumerate(script["segments"]):
@@ -188,4 +196,4 @@ def _live_answer(job: dict) -> dict:
             "text": s["text"],
             "citation": citation,
         })
-    return {"question": job["question"], "audio_url": f"/{key}", "segments": segments}
+    return {"question": job["question"], "audio_url": f"/audio/{filename}", "segments": segments}

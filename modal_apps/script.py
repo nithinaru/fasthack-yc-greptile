@@ -1,12 +1,17 @@
-"""Repo Radio — Modal app #1: scriptwriter.
+"""Repo Radio — Modal app #1: script writer.
 
 Serves POST /script: Greptile findings in, strict episode-script JSON out.
 Model: Qwen/Qwen2.5-7B-Instruct on vLLM (A10G, L4 fallback).
 
-Deploy:   modal deploy modal_apps/scriptwriter.py
-Dev:      modal serve modal_apps/scriptwriter.py
-Warm-up:  SCRIPTWRITER_MIN_CONTAINERS=1 modal deploy modal_apps/scriptwriter.py
+Deploy:   modal deploy modal_apps/script.py
+Dev:      modal serve modal_apps/script.py
+Warm-up:  SCRIPT_MIN_CONTAINERS=1 modal deploy modal_apps/script.py
 Mocks:    set USE_MOCKS=1 (deploy env) or send {"mock": true} in the body.
+
+Host persona lives in prompts/host.txt at the repo root (PRD §3.3). We bundle
+both that file and the legacy modal_apps/prompts/host.txt copy into the
+image and read root-first with a fallback, so a missing root file never
+breaks a deploy.
 """
 from __future__ import annotations
 
@@ -16,15 +21,23 @@ from pathlib import Path
 
 import modal
 
-APP_NAME = "repo-radio-scriptwriter"
+APP_NAME = "repo-radio-script"
 MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
 MODELS_DIR = "/models"
-# Flip to 1 before demos: SCRIPTWRITER_MIN_CONTAINERS=1 modal deploy ...
-MIN_CONTAINERS = int(os.environ.get("SCRIPTWRITER_MIN_CONTAINERS", "0"))
+# Flip to 1 before demos: SCRIPT_MIN_CONTAINERS=1 modal deploy ...
+MIN_CONTAINERS = int(os.environ.get("SCRIPT_MIN_CONTAINERS", "0"))
 SCALEDOWN_WINDOW = 15 * 60  # seconds; generous so back-to-back demos stay warm
 MAX_RETRIES = 2  # parse-failure retries after the first attempt
 
 LOCAL_DIR = Path(__file__).parent
+REPO_ROOT = LOCAL_DIR.parent
+
+# Remote-container paths for the two possible host.txt locations, in
+# preference order (root first, legacy modal_apps copy as fallback).
+HOST_PROMPT_PATHS = (
+    "/root/prompts/host.txt",
+    "/root/modal_apps/prompts/host.txt",
+)
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -35,8 +48,10 @@ image = (
         "hf_transfer==0.1.8",
     )
     .env({"HF_HUB_ENABLE_HF_TRANSFER": "1", "HF_HOME": MODELS_DIR})
-    # Bundle the persona prompt, the mock response, and the pure helpers.
+    # Bundle the mock response + the pure helpers (and legacy prompt copy).
     .add_local_dir(LOCAL_DIR, remote_path="/root/modal_apps")
+    # Bundle the canonical repo-root host persona prompt.
+    .add_local_dir(REPO_ROOT / "prompts", remote_path="/root/prompts")
 )
 
 models_volume = modal.Volume.from_name("repo-radio-models", create_if_missing=True)
@@ -48,6 +63,20 @@ def _use_mocks() -> bool:
     return os.environ.get("USE_MOCKS") == "1"
 
 
+def _load_host_prompt() -> str:
+    for path in HOST_PROMPT_PATHS:
+        p = Path(path)
+        if p.exists():
+            return p.read_text()
+    # Last-resort inline fallback so a bundling mistake never crashes a demo.
+    return (
+        "You are the host of Repo Radio, a late-night FM radio show about "
+        "trending GitHub repositories. Be sharp, warm, and wry; never cruel. "
+        "Every claim must trace to a provided finding. Respond with strict "
+        "JSON only, matching the schema you are given."
+    )
+
+
 @app.cls(
     image=image,
     gpu=["A10G", "L4"],
@@ -57,7 +86,7 @@ def _use_mocks() -> bool:
     min_containers=MIN_CONTAINERS,
     secrets=[],
 )
-class Scriptwriter:
+class Script:
     @modal.enter()
     def load(self):
         import sys
@@ -65,7 +94,7 @@ class Scriptwriter:
         sys.path.insert(0, "/root")
         from modal_apps import script_common  # noqa: F401  (imported for endpoint use)
 
-        self.host_prompt = Path("/root/modal_apps/prompts/host.txt").read_text()
+        self.host_prompt = _load_host_prompt()
         self.llm = None
         if _use_mocks():
             return  # mock mode: never touch the GPU / weights

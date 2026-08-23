@@ -1,7 +1,7 @@
-"""Pure helpers for the Repo Radio scriptwriter.
+"""Pure helpers for the Repo Radio script writer.
 
 No modal / vllm / GPU dependencies here — importable anywhere (used by the
-local unit test and by scriptwriter.py inside the Modal container).
+local unit test and by script.py inside the Modal container).
 """
 from __future__ import annotations
 

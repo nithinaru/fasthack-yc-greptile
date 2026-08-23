@@ -1,8 +1,9 @@
-"""D4 verification: the live ask path with faked network edges (Greptile, Modal,
-GitHub raw) and moto S3 — proves orchestration, WAV assembly + gap timestamps,
-S3 upload, and that the produced qa_segment validates against the episode schema.
+"""Verification of the live ask path with faked network edges (Greptile, Modal,
+GitHub raw). Proves orchestration, WAV assembly + gap timestamps, publishing
+onto DATA_DIR, and that the produced qa_segment validates against the episode
+schema. No live keys required — network calls are monkeypatched.
 
-Run: .venv/bin/python3.14 -m pytest server/test_ask_live.py -q
+Run: python3 -m pytest server/test_ask_live.py -q
 """
 import base64
 import io
@@ -10,9 +11,7 @@ import json
 import struct
 import wave
 
-import boto3
 import pytest
-from moto import mock_aws
 
 import server  # noqa: F401  (path shim)
 import ask
@@ -47,10 +46,16 @@ FAKE_SOURCE = "\n".join(f"line {n}" for n in range(1, 101))
 
 
 @pytest.fixture()
-def live_env(monkeypatch):
+def live_env(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "USE_MOCKS", False)
     monkeypatch.setattr(settings, "MODAL_SCRIPT_URL", "https://modal.test/script")
     monkeypatch.setattr(settings, "MODAL_TTS_URL", "https://modal.test/tts")
+    # Live keys aren't available in CI/dev — fake them so _live_answer's
+    # fail-fast key check passes; the actual network calls are monkeypatched
+    # below so no real Greptile/GitHub call is ever made.
+    monkeypatch.setattr(settings, "GREPTILE_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "GITHUB_TOKEN", "test-token")
+    monkeypatch.setattr(settings, "DATA_DIR", tmp_path)
 
     calls = {}
 
@@ -80,41 +85,35 @@ def live_env(monkeypatch):
 
 
 def test_live_answer_end_to_end(live_env):
-    with mock_aws():
-        boto3.client("s3", region_name=settings.AWS_REGION).create_bucket(
-            Bucket=settings.S3_BUCKET,
-            CreateBucketConfiguration={"LocationConstraint": settings.AWS_REGION},
-        )
-        job = {"episode_id": "ep-000", "question": "Is the scheduler real?",
-               "user_id": "judge@test.com"}
-        qa = ask._live_answer(job)
+    job = {"episode_id": "ep-000", "question": "Is the scheduler real?",
+           "user_id": "judge@test.com"}
+    qa = ask._live_answer(job)
 
-        # Contract shape: {question, audio_url, segments[]}
-        assert qa["question"] == job["question"]
-        assert qa["audio_url"].startswith("/audio/ep-000-qa-")
+    # Contract shape: {question, audio_url, segments[]}
+    assert qa["question"] == job["question"]
+    assert qa["audio_url"].startswith("/audio/ep-000-qa-")
 
-        # Timestamps: seg0 [0, 2.0], gap 0.35, seg1 [2.35, 3.85]
-        s0, s1 = qa["segments"]
-        assert s0["start"] == 0.0 and s0["end"] == 2.0
-        assert s1["start"] == 2.35 and s1["end"] == 3.85
+    # Timestamps: seg0 [0, 2.0], gap 0.35, seg1 [2.35, 3.85]
+    s0, s1 = qa["segments"]
+    assert s0["start"] == 0.0 and s0["end"] == 2.0
+    assert s1["start"] == 2.35 and s1["end"] == 3.85
 
-        # Citation rendered fixture-style with cited class; null passes through.
-        assert '<span class="line cited" data-line="51">' in s0["citation"]["code_html"]
-        assert s1["citation"] is None
+    # Citation rendered fixture-style with cited class; null passes through.
+    assert '<span class="line cited" data-line="51">' in s0["citation"]["code_html"]
+    assert s1["citation"] is None
 
-        # Audio actually landed in S3, one WAV, correct total length (2+0.35+1.5).
-        s3 = boto3.client("s3", region_name=settings.AWS_REGION)
-        body = s3.get_object(Bucket=settings.S3_BUCKET,
-                             Key=qa["audio_url"].lstrip("/"))["Body"].read()
-        with wave.open(io.BytesIO(body), "rb") as w:
-            total = w.getnframes() / w.getframerate()
-        assert abs(total - 3.85) < 0.01
+    # Audio actually landed on DATA_DIR/audio/, one WAV, correct total length.
+    audio_path = settings.DATA_DIR / qa["audio_url"].lstrip("/")
+    assert audio_path.exists()
+    with wave.open(str(audio_path), "rb") as w:
+        total = w.getnframes() / w.getframerate()
+    assert abs(total - 3.85) < 0.01
 
-        # Greptile was asked with genius=False semantics via our lambda; script
-        # got answer mode with the finding wired through.
-        script_body = live_env["https://modal.test/script"][0]
-        assert script_body["mode"] == "answer"
-        assert script_body["greptile_findings"][0]["sources"][0]["filepath"] == "core/scheduler.py"
+    # Greptile was asked with genius=False semantics via our lambda; script
+    # got answer mode with the finding wired through.
+    script_body = live_env["https://modal.test/script"][0]
+    assert script_body["mode"] == "answer"
+    assert script_body["greptile_findings"][0]["sources"][0]["filepath"] == "core/scheduler.py"
 
 
 def test_qa_segment_validates_against_episode_schema(live_env):
@@ -122,18 +121,25 @@ def test_qa_segment_validates_against_episode_schema(live_env):
     schema = json.loads((settings.REPO_ROOT / "contracts/episode.schema.json").read_text())
     qa_schema = {**schema["properties"]["qa_segments"]["items"],
                  "definitions": schema["definitions"]}
-    with mock_aws():
-        boto3.client("s3", region_name=settings.AWS_REGION).create_bucket(
-            Bucket=settings.S3_BUCKET,
-            CreateBucketConfiguration={"LocationConstraint": settings.AWS_REGION},
-        )
-        qa = ask._live_answer({"episode_id": "ep-000", "question": "q?",
-                               "user_id": "u@x.com"})
+    qa = ask._live_answer({"episode_id": "ep-000", "question": "q?",
+                           "user_id": "u@x.com"})
     jsonschema.validate(qa, qa_schema)
 
 
 def test_missing_modal_urls_fail_fast(monkeypatch):
     monkeypatch.setattr(settings, "USE_MOCKS", False)
     monkeypatch.setattr(settings, "MODAL_SCRIPT_URL", "")
-    with pytest.raises(RuntimeError, match="ENDPOINTS.md"):
+    monkeypatch.setattr(settings, "GREPTILE_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "GITHUB_TOKEN", "test-token")
+    with pytest.raises(RuntimeError, match="MODAL_SCRIPT_URL"):
+        ask._live_answer({"episode_id": "ep-000", "question": "q?", "user_id": "u@x.com"})
+
+
+def test_missing_greptile_keys_fail_fast(monkeypatch):
+    monkeypatch.setattr(settings, "USE_MOCKS", False)
+    monkeypatch.setattr(settings, "MODAL_SCRIPT_URL", "https://modal.test/script")
+    monkeypatch.setattr(settings, "MODAL_TTS_URL", "https://modal.test/tts")
+    monkeypatch.setattr(settings, "GREPTILE_API_KEY", "")
+    monkeypatch.setattr(settings, "GITHUB_TOKEN", "")
+    with pytest.raises(RuntimeError, match="GREPTILE_API_KEY"):
         ask._live_answer({"episode_id": "ep-000", "question": "q?", "user_id": "u@x.com"})

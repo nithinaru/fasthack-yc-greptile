@@ -1,11 +1,12 @@
-"""D3 verification without live keys: the signed-webhook path, exercised by
+"""Verification without live keys: the signed-webhook path, exercised by
 signing payloads exactly the way Stripe does (t=<ts>,v1=HMAC-SHA256("{t}.{body}")).
 
-Run: .venv/bin/python3.14 -m pytest server/test_stripe_webhook.py -q
+Run: python3 -m pytest server/test_stripe_webhook.py -q
 """
 import hashlib
 import hmac
 import json
+import tempfile
 import time
 
 import pytest
@@ -33,12 +34,14 @@ def event_bytes(user_id="judge@test.com", credits="100", session_id="cs_live_1")
 
 
 @pytest.fixture()
-def live_mode(monkeypatch):
+def live_mode(monkeypatch, tmp_path):
+    # Fresh SQLite file per test so balances don't leak between tests.
     monkeypatch.setattr(settings, "USE_MOCKS", False)
     monkeypatch.setattr(settings, "STRIPE_WEBHOOK_SECRET", SECRET)
-    store = wallet.MockWalletStore()
-    monkeypatch.setattr(wallet, "_store", store)
-    return store
+    monkeypatch.setattr(settings, "WALLET_DB", str(tmp_path / "wallet.db"))
+    wallet._reset_for_tests()
+    yield wallet
+    wallet._reset_for_tests()
 
 
 def test_valid_signature_credits_wallet(live_mode):
@@ -82,4 +85,4 @@ def test_other_event_types_ignored(live_mode):
 
 
 def test_tier_mapping_frozen():
-    assert settings.TIERS == {5: 45, 10: 100, 20: 220}
+    assert settings.TIERS == {1: 10, 5: 55, 10: 120}

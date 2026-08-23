@@ -5,6 +5,12 @@ __pycache__/
 venv/
 node_modules/
 runs/
+runs/**/*.mp3
 .DS_Store
-demo_backup/*.mov
-demo_backup/*.mp4
+demo_backup/
+*.db
+*.db-journal
+
+# fixture/web audio must ship — do not ignore
+!fixtures/audio/*.mp3
+!web/audio/*.mp3

@@ -1,7 +1,10 @@
-"""Stripe Checkout top-ups + webhook crediting (PRD §5.6, test mode all day).
-Mock mode needs no Stripe account: /api/topup credits the wallet immediately and
-returns a fake success-redirect URL so Lane C can build the full redirect →
-poll-wallet → balance-count-up flow against USE_MOCKS=1."""
+"""Stripe Checkout top-ups + webhook crediting (PRD §3.4, test mode all day).
+
+Mock mode (USE_MOCKS=1) or no STRIPE_SECRET_KEY: /api/topup credits the wallet
+immediately and returns a fake success-redirect URL so the frontend can build
+the full redirect -> poll-wallet -> balance-count-up loop with no Stripe
+account at all.
+"""
 import json
 import logging
 import uuid
@@ -12,16 +15,22 @@ import wallet
 log = logging.getLogger("server.stripe")
 
 
+def _keyless() -> bool:
+    return settings.USE_MOCKS or not settings.STRIPE_SECRET_KEY
+
+
 def create_checkout(user_id: str, tier: int) -> str:
     """Return a Checkout URL for the tier. Raises ValueError on unknown tier."""
     credits = settings.TIERS.get(tier)
     if credits is None:
         raise ValueError(f"unknown tier {tier}; valid: {sorted(settings.TIERS)}")
 
-    if settings.USE_MOCKS:
+    if _keyless():
         ref = f"cs_mock_{uuid.uuid4().hex[:12]}"
-        wallet.get_store().credit(user_id, credits, ref)
-        log.info("MOCK topup: %s +%d credits (%s)", user_id, credits, ref)
+        if settings.USE_MOCKS:
+            # Mock mode only: credit immediately so the UI loop works keyless.
+            wallet.credit(user_id, credits)
+            log.info("MOCK topup: %s +%d credits (%s)", user_id, credits, ref)
         return f"{settings.SITE_URL}/?topup=success&session={ref}"
 
     import stripe
@@ -75,6 +84,5 @@ def handle_webhook(payload: bytes, sig_header: str | None) -> None:
     if not user_id or credits <= 0:
         log.warning("webhook with missing/invalid metadata: %s", meta)
         return
-    ref = session.get("id", "cs_unknown")
-    wallet.get_store().credit(user_id, credits, ref)
-    log.info("webhook credited %s +%d (%s)", user_id, credits, ref)
+    wallet.credit(user_id, credits)
+    log.info("webhook credited %s +%d (%s)", user_id, credits, session.get("id", "cs_unknown"))

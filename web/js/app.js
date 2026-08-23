@@ -21,12 +21,20 @@ async function discoverEpisodes() {
   for (let n = 0; n < CFG.EPISODE_PROBE_MAX; n++) {
     const id = `ep-${String(n).padStart(3, "0")}`;
     try {
-      const r = await fetch(`episodes/${id}.json`, { cache: "no-store" });
+      const r = await fetch(`${CFG.STATIC_BASE}/episodes/${id}.json`, { cache: "no-store" });
       if (!r.ok) { if (found.length) break; else continue; }
       found.push(await r.json());
     } catch { if (found.length) break; }
   }
   return found;
+}
+
+// Resolve a static asset path from the episode contract (e.g. "/audio/ep-000.mp3")
+// against STATIC_BASE. Leaves already-absolute (http/https) URLs untouched.
+function staticUrl(path) {
+  if (!path) return path;
+  if (/^https?:\/\//.test(path)) return path;
+  return `${CFG.STATIC_BASE}${path}`;
 }
 
 function fmtTime(t) {
@@ -76,7 +84,7 @@ function renderEpisodeList() {
 
 // ── Host's Memory panel (memory.json shape is uncontracted — render defensively) ──
 async function renderMemory() {
-  const url = CFG.USE_MOCKS ? CFG.MEMORY_URL_MOCK : CFG.MEMORY_URL_LIVE;
+  const url = `${CFG.STATIC_BASE}/memory.json`;
   let data = null;
   try { const r = await fetch(url, { cache: "no-store" }); if (r.ok) data = await r.json(); } catch {}
   const panel = $("memory-panel");
@@ -95,7 +103,7 @@ async function renderMemory() {
         <span class="font-mono2 text-[9px]" style="color: var(--text-2)">${(e.ts || e.date || "").slice(0, 10)}</span>
       </div>
       <ul class="mt-1 space-y-0.5">
-        ${(e.facts || e.notes || (e.note ? [e.note] : [])).map((f) => `<li class="text-[12px] leading-snug" style="color: var(--text-2)">· ${f}</li>`).join("")}
+        ${(e.facts || e.notes || e.claims_checked || (e.note ? [e.note] : [])).map((f) => `<li class="text-[12px] leading-snug" style="color: var(--text-2)">· ${f}</li>`).join("")}
       </ul>
     </div>`).join("");
 }
@@ -124,7 +132,7 @@ function playQaSegment(qa) {
   state.player?.pause();
   if (state.qaAudio) { state.qaAudio.pause(); state.qaAudio = null; }
   const handle = state.sync.appendQa(qa);
-  const audio = new Audio(qa.audio_url);
+  const audio = new Audio(staticUrl(qa.audio_url));
   state.qaAudio = audio;
   // Answer segments may sit mid-file (mock replays a stretch of the episode):
   // start at the first segment and stop just past the last.
@@ -166,7 +174,7 @@ async function loadEpisode(id) {
   $("waveform").innerHTML = "";
   state.player = await createPlayer({
     container: $("waveform"),
-    audioUrl: ep.audio.url.startsWith("/") ? ep.audio.url.slice(1) : ep.audio.url,
+    audioUrl: staticUrl(ep.audio.url),
     peaks: ep.audio.peaks,
     duration: ep.audio.duration_s,
     onTime: (t) => { $("time-cur").textContent = fmtTime(t); state.sync.update(t); },

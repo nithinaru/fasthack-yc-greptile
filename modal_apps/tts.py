@@ -1,17 +1,22 @@
 """Repo Radio TTS service — Modal app serving POST /tts with Kokoro-82M.
 
-Deploy:  modal deploy modal_apps/voice.py
+Deploy:  modal deploy modal_apps/tts.py
 Test:    curl -X POST <url>/tts -H 'content-type: application/json' \
              -d '{"segments": ["Hello from Repo Radio."], "mock": true}'
 
-Contract (REPO_RADIO_PRD.md §5.4):
+Contract (PRD §3.3):
   POST /tts  body: { "segments": ["text", ...], "voice": optional str, "mock": optional bool }
   response:  { "segments": [ { "audio_b64", "format", "duration_s" }, ... ],
                "voice": str, "sample_rate": 24000 }
 
-Segments are synthesized independently and never concatenated server-side —
-the pipeline inserts 0.35s gaps client-side, and duration_s (samples /
-sample_rate) drives karaoke sync timestamps, so it must be exact.
+Segments are synthesized independently and never concatenated server-side.
+The pipeline assembles the final MP3 and inserts 0.35s gaps between
+segments; karaoke-sync timestamps are:
+
+    start[i] = sum(duration_s[0..i-1]) + i * 0.35
+    end[i]   = start[i] + duration_s[i]
+
+duration_s (samples / sample_rate) drives that timeline, so it must be exact.
 """
 
 from __future__ import annotations
@@ -36,7 +41,7 @@ VOICE = "am_michael"
 # cold starts during the demo. Default 0 (scale to zero).
 MIN_CONTAINERS = int(os.environ.get("REPO_RADIO_TTS_MIN_CONTAINERS", "0"))
 
-app = modal.App("repo-radio-voice")
+app = modal.App("repo-radio-tts")
 
 image = (
     modal.Image.debian_slim()

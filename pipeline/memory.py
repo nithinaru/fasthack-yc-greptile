@@ -1,15 +1,17 @@
-"""A7 — Host memory: write-after-episode, search-before-script (PRD §5.7).
+"""A7 — Host memory: write-after-episode, search-before-script (PRD §3.5).
 
 Two layers, both degrade gracefully:
-  1. memory.json (authoritative, always on): runs/site/memory.json — one
-     observation per episode finding. Uploaded to S3 in live mode so the UI
-     panel and the App Runner ask-flow can read it. This is the PRD-sanctioned
-     fallback and the source of `memory_refs`.
+  1. memory.json (authoritative, always on): web/memory.json — one
+     observation per episode finding. publish.py pushes it to the Modal
+     Volume alongside episode JSON/MP3 in live mode, and the checked-in
+     web/ mirror is always kept current for local serving. This is the
+     PRD-sanctioned fallback and the source of `memory_refs`.
   2. claude-mem worker (best-effort): local worker (CLAUDE_MEM_URL, default
-     http://localhost:37777) exposes GET /api/search?q= over indexed sessions.
-     Probed at 20:57 on race-day-eve: search works, there is no HTTP write
-     endpoint — the worker indexes transcripts on its own. So reads come from
-     the worker when it's up; writes go through memory.json.
+     http://localhost:37777) — GET/POST /api/search for top-k notes. The
+     worker has no HTTP write endpoint (it indexes transcripts passively),
+     so reads come from the worker when it's up; writes always go through
+     memory.json. Short timeout (~2s) — a dead worker must never stall or
+     kill the pipeline.
 
 API:  write_observations(episode, findings) -> observation
       memory_digest(repo_full_name, tags) -> (digest_text, memory_refs)
@@ -19,16 +21,17 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MEMORY_JSON = ROOT / "runs" / "site" / "memory.json"
+MEMORY_JSON = ROOT / "web" / "memory.json"
 WORKER_URL = os.environ.get("CLAUDE_MEM_URL", "http://localhost:37777")
+WORKER_TIMEOUT_S = 2
 
 
 def _use_mocks() -> bool:
@@ -36,35 +39,56 @@ def _use_mocks() -> bool:
 
 
 def _load() -> dict:
+    """Read web/memory.json, tolerating a pre-existing file in a different
+    shape (memory.json is uncontracted per web/js/app.js — a UI-lane fixture
+    may have seeded it before the pipeline ever wrote to it). Anything
+    without our "observations" list is treated as empty; the next
+    write_observations() call replaces it with our schema.
+    """
     if MEMORY_JSON.exists():
-        return json.loads(MEMORY_JSON.read_text())
+        try:
+            data = json.loads(MEMORY_JSON.read_text())
+        except json.JSONDecodeError:
+            return {"observations": []}
+        if isinstance(data, dict) and isinstance(data.get("observations"), list):
+            return data
     return {"observations": []}
 
 
 def _save(mem: dict) -> None:
     MEMORY_JSON.parent.mkdir(parents=True, exist_ok=True)
     MEMORY_JSON.write_text(json.dumps(mem, indent=2) + "\n")
-    if not _use_mocks():
-        bucket = os.environ.get("S3_BUCKET")
-        if bucket:
-            subprocess.run(
-                ["aws", "s3", "cp", str(MEMORY_JSON), f"s3://{bucket}/memory.json",
-                 "--region", os.environ.get("AWS_REGION", "us-west-2"),
-                 "--content-type", "application/json"],
-                check=True,
-            )
+    # publish.py is the sanctioned upload path (Modal Volume + optional S3);
+    # this module only ever owns the local web/memory.json write.
 
 
 def worker_search(query: str, limit: int = 5) -> list[dict]:
-    """Best-effort search against the local claude-mem/cavemem worker."""
+    """Best-effort search against the local claude-mem worker's /api/search.
+
+    Tries GET first (query string), falls back to POST with a JSON body —
+    either is fine per PRD §3.5, whichever the worker actually implements.
+    Any failure (down, timeout, unexpected shape) degrades to memory.json
+    alone; this must never raise.
+    """
     try:
         url = f"{WORKER_URL}/api/search?q={urllib.parse.quote(query)}"
-        with urllib.request.urlopen(url, timeout=3) as resp:
+        with urllib.request.urlopen(url, timeout=WORKER_TIMEOUT_S) as resp:
             hits = json.load(resp)
-        return hits[:limit] if isinstance(hits, list) else []
-    except Exception as e:  # noqa: BLE001 — memory must never kill the pipeline
-        print(f"  memory worker unavailable ({e}) — memory.json only", file=sys.stderr)
-        return []
+    except Exception as e_get:  # noqa: BLE001 — memory must never kill the pipeline
+        try:
+            body = json.dumps({"query": query, "q": query, "limit": limit}).encode()
+            req = urllib.request.Request(
+                f"{WORKER_URL}/api/search", data=body, method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=WORKER_TIMEOUT_S) as resp:
+                hits = json.load(resp)
+        except Exception as e_post:  # noqa: BLE001
+            print(f"  memory worker unavailable ({e_get}; {e_post}) — memory.json only", file=sys.stderr)
+            return []
+    if isinstance(hits, dict):
+        hits = hits.get("results") or hits.get("hits") or hits.get("notes") or []
+    return hits[:limit] if isinstance(hits, list) else []
 
 
 def write_observations(episode: dict, findings: list[dict] | None = None) -> dict:

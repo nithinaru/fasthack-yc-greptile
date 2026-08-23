@@ -1,6 +1,6 @@
-"""Local unit tests for the scriptwriter's pure helpers.
+"""Local unit tests for the script writer's pure helpers.
 
-Run with:  python3 modal_apps/test_scriptwriter_local.py
+Run with:  python3 modal_apps/test_script_local.py
 No modal / vllm / GPU required.
 """
 import copy

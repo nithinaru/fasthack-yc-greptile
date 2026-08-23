@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SITE_EPISODES = ROOT / "runs" / "site" / "episodes"
+SITE_EPISODES = ROOT / "web" / "episodes"
 
 
 def next_ep_id() -> str:
@@ -61,7 +61,7 @@ def bake(repo: str | None, ep_id: str | None = None, branch: str = "main") -> di
     cited = render.attach_citations(ep_script["segments"], full_name, branch)
 
     print("[6/7] voice + timeline + peaks", file=sys.stderr)
-    mp3_path = ROOT / "runs" / "site" / "audio" / f"{ep_id}.mp3"
+    mp3_path = ROOT / "web" / "audio" / f"{ep_id}.mp3"
     voice_meta = voice.synthesize([s["text"] for s in cited], mp3_path)
     print(f"      → {voice_meta['duration_s']}s audio", file=sys.stderr)
 

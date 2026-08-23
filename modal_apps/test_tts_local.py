@@ -1,6 +1,6 @@
 """Local contract test for the TTS service helpers.
 
-Run:  python3 modal_apps/test_voice_local.py
+Run:  python3 modal_apps/test_tts_local.py
 
 No modal, torch, kokoro, numpy, or soundfile required — voice_common falls
 back to stdlib implementations when third-party packages are missing.

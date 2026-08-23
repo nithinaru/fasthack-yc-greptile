@@ -1,7 +1,9 @@
 // C4 — wallet, top-up tiers, and the ask-the-host call-in flow.
 // Contract: contracts/wallet_api.md (frozen). Mock mode works with zero backend.
 
-const TIER_CREDITS = { 5: 45, 10: 100, 20: 220 };
+// PRICING FROZEN (PRD §3.4 / v2 notes): $1→10, $5→55, $10→120. Tier values sent
+// to POST /api/topup are 1|5|10 (dollars).
+const TIER_CREDITS = { 1: 10, 5: 55, 10: 120 };
 const MOCK_KEY = "rr_mock_credits";
 const USER_KEY = "rr_user";
 

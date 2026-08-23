@@ -1,14 +1,13 @@
-"""Repo Radio serving API (Lane D) — contracts/wallet_api.md, verbatim.
+"""Repo Radio serving API — PRD §3.4, verbatim.
 
-Run locally:  make serve-local          (cd server && uvicorn app:app --port 8080)
-Container:    server/Dockerfile, port 8080 (App Runner in D5).
+Run locally:  bash server/run_local.sh   (or: cd server && uvicorn app:app --port 8000)
+Modal:        modal_apps/serve.py wraps this same FastAPI app in @modal.asgi_app().
 """
 import logging
 import pathlib
 import sys
 
-# Flat imports work when launched from server/; make them work from repo root too,
-# and put the repo root on the path for the sanctioned pipeline.greptile import (D4).
+# Flat imports work when launched from server/; make them work from repo root too.
 _HERE = pathlib.Path(__file__).resolve().parent
 for p in (str(_HERE), str(_HERE.parent)):
     if p not in sys.path:
@@ -17,6 +16,7 @@ for p in (str(_HERE), str(_HERE.parent)):
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 import ask
@@ -74,17 +74,15 @@ async def stripe_webhook(request: Request):
 
 @app.get("/api/wallet/{user_id}")
 def get_wallet(user_id: str):
-    return {"credits": wallet.get_store().get_credits(user_id.lower())}
+    return {"credits": wallet.get_credits(user_id.lower())}
 
 
 @app.post("/api/ask")
 def post_ask(req: AskRequest, background: BackgroundTasks):
     user_id = req.user_id.lower()
-    job_id = ask.create_job(user_id, req.episode_id, req.question)
-    try:
-        wallet.get_store().debit(user_id, settings.CREDITS_PER_QUESTION, job_id)
-    except wallet.InsufficientCredits:
+    if not wallet.debit(user_id, settings.CREDITS_PER_QUESTION):
         return JSONResponse(status_code=402, content={"error": "no_credits"})
+    job_id = ask.create_job(user_id, req.episode_id, req.question)
     background.add_task(ask.run_job, job_id)
     return {"job_id": job_id}
 
@@ -98,6 +96,16 @@ def get_ask(job_id: str):
         return {"status": "done", "qa_segment": job["qa_segment"]}
     if job["status"] == "error":
         # Contract only defines pending|done; surface errors as pending never —
-        # be explicit so Lane C can show a retry state.
+        # be explicit so the frontend can show a retry state.
         return JSONResponse(status_code=500, content={"status": "error", "error": job["error"]})
     return {"status": "pending"}
+
+
+# --- static content ---------------------------------------------------------
+# DATA_DIR is served both at root ("/" -> index.html, /episodes/*, /audio/*, …)
+# and mounted again at "/static" for absolute /static/... references. Same
+# directory, two mount points — StaticFiles(html=True) handles index.html
+# fallback for the root mount.
+settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(settings.DATA_DIR)), name="static")
+app.mount("/", StaticFiles(directory=str(settings.DATA_DIR), html=True), name="root")

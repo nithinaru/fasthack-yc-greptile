@@ -1,13 +1,18 @@
-"""A6 — Publish: assemble episode JSON → S3 (JSON+MP3) → feed.xml → CF invalidation.
+"""A6 — Publish: assemble episode JSON → Modal Volume (+ local web/ mirror) → feed.xml.
 
-Layout published (PRD §5.5):  /episodes/ep-NNN.json  /audio/ep-NNN.mp3  /feed.xml
+v2 (all-Modal): the Volume `repo-radio-data` (env MODAL_VOLUME) is the live
+static root Modal /serve reads from — layout `/static/episodes/ep-NNN.json`,
+`/static/audio/ep-NNN.mp3`, `/static/memory.json`, `/static/feed.xml`. We push
+there via `modal volume put` (subprocess), one file at a time.
 
-USE_MOCKS=1 (default): publishes to the local mirror runs/site/ instead of S3
-(same paths), no AWS calls. Live mode shells out to the AWS CLI (already
-configured per HANDOFF) using S3_BUCKET / AWS_REGION / CLOUDFRONT_DISTRIBUTION_ID.
+The local mirror at web/ (web/episodes/, web/audio/, web/memory.json,
+web/feed.xml) is ALWAYS written too — it's what the checked-in static site
+serves locally and is the zero-network demo fallback. In USE_MOCKS=1 mode we
+do ONLY the local copy (no Modal CLI calls, no keys needed).
 
-The local mirror is ALWAYS written (it is the source for the RSS feed's episode
-list and the zero-network demo fallback); live mode additionally uploads.
+The old S3+CloudFront path is kept behind PUBLISH_S3=1 — designed for
+S3+CloudFront; not deployed today (PRD v2 note, §1). It is dead weight for
+today's demo but costs nothing to keep for the pitch/README honesty note.
 
 API:  assemble_episode(...) -> episode dict (schema-validated)
       publish_episode(episode, mp3_path) -> {"json": url, "mp3": url, "feed": url}
@@ -25,7 +30,7 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parent.parent
-SITE = ROOT / "runs" / "site"
+SITE = ROOT / "web"
 SCHEMA = ROOT / "contracts" / "episode.schema.json"
 
 SHOW_TITLE = "Repo Radio"
@@ -137,12 +142,63 @@ def build_feed(episodes: list[dict]) -> str:
 """
 
 
+def _modal_volume() -> str:
+    return os.environ.get("MODAL_VOLUME", "repo-radio-data")
+
+
+def _modal_put(local: Path, remote: str) -> None:
+    """`modal volume put <volume> <local> <remote>` — one file, via subprocess."""
+    subprocess.run(
+        ["modal", "volume", "put", _modal_volume(), str(local), remote, "-f"],
+        check=True,
+    )
+
+
+def _publish_modal(ep_json: Path, ep_mp3: Path, memory_json: Path, feed: Path, ep_id: str) -> None:
+    _modal_put(ep_json, f"/static/episodes/{ep_id}.json")
+    _modal_put(ep_mp3, f"/static/audio/{ep_id}.mp3")
+    if memory_json.exists():
+        _modal_put(memory_json, "/static/memory.json")
+    _modal_put(feed, "/static/feed.xml")
+    print(f"  published to Modal Volume {_modal_volume()}:/static/", file=sys.stderr)
+
+
 def _aws(*args: str) -> None:
     subprocess.run(["aws", *args], check=True)
 
 
+def _publish_s3(ep_json: Path, ep_mp3: Path, feed: Path, ep_id: str) -> None:
+    """Old S3+CloudFront path — designed for S3+CloudFront; not deployed today.
+
+    Kept behind PUBLISH_S3=1 for the pitch/README honesty note (PRD v2 §1);
+    Modal is the only live distribution path for the hackathon demo.
+    """
+    bucket = os.environ.get("S3_BUCKET")
+    region = os.environ.get("AWS_REGION", "us-west-2")
+    if not bucket:
+        raise RuntimeError("S3_BUCKET unset — cannot publish to S3")
+    _aws("s3", "cp", str(ep_json), f"s3://{bucket}/episodes/{ep_id}.json", "--region", region,
+         "--content-type", "application/json")
+    _aws("s3", "cp", str(ep_mp3), f"s3://{bucket}/audio/{ep_id}.mp3", "--region", region,
+         "--content-type", "audio/mpeg")
+    _aws("s3", "cp", str(feed), f"s3://{bucket}/feed.xml", "--region", region,
+         "--content-type", "application/rss+xml")
+    dist = os.environ.get("CLOUDFRONT_DISTRIBUTION_ID")
+    if dist:
+        _aws("cloudfront", "create-invalidation", "--distribution-id", dist,
+             "--paths", f"/episodes/{ep_id}.json", f"/audio/{ep_id}.mp3", "/feed.xml")
+    else:
+        print("  CLOUDFRONT_DISTRIBUTION_ID unset — skipping invalidation", file=sys.stderr)
+    print(f"  published (optional path) to s3://{bucket}", file=sys.stderr)
+
+
 def publish_episode(episode: dict, mp3_path: Path) -> dict:
-    """Write episode+MP3 to the local mirror, rebuild feed.xml; live mode uploads too."""
+    """Write episode+MP3 to the local web/ mirror, rebuild feed.xml.
+
+    USE_MOCKS=1: local copy only, no keys/CLI needed. Live mode also pushes
+    to the Modal Volume; PUBLISH_S3=1 additionally mirrors to S3 (optional,
+    not part of today's deploy).
+    """
     ep_id = episode["id"]
     (SITE / "episodes").mkdir(parents=True, exist_ok=True)
     (SITE / "audio").mkdir(parents=True, exist_ok=True)
@@ -157,26 +213,14 @@ def publish_episode(episode: dict, mp3_path: Path) -> dict:
     feed = SITE / "feed.xml"
     feed.write_text(build_feed(all_eps))
 
+    memory_json = SITE / "memory.json"
+
     published = {"json": f"/episodes/{ep_id}.json", "mp3": f"/audio/{ep_id}.mp3", "feed": "/feed.xml"}
     if _use_mocks():
         print(f"  [mock] published to {SITE}", file=sys.stderr)
         return published
 
-    bucket = os.environ.get("S3_BUCKET")
-    region = os.environ.get("AWS_REGION", "us-west-2")
-    if not bucket:
-        raise RuntimeError("S3_BUCKET unset — cannot publish live")
-    _aws("s3", "cp", str(ep_json), f"s3://{bucket}/episodes/{ep_id}.json", "--region", region,
-         "--content-type", "application/json")
-    _aws("s3", "cp", str(ep_mp3), f"s3://{bucket}/audio/{ep_id}.mp3", "--region", region,
-         "--content-type", "audio/mpeg")
-    _aws("s3", "cp", str(feed), f"s3://{bucket}/feed.xml", "--region", region,
-         "--content-type", "application/rss+xml")
-    dist = os.environ.get("CLOUDFRONT_DISTRIBUTION_ID")
-    if dist:
-        _aws("cloudfront", "create-invalidation", "--distribution-id", dist,
-             "--paths", f"/episodes/{ep_id}.json", f"/audio/{ep_id}.mp3", "/feed.xml")
-    else:
-        print("  CLOUDFRONT_DISTRIBUTION_ID unset — skipping invalidation", file=sys.stderr)
-    print(f"  published live to s3://{bucket}", file=sys.stderr)
+    _publish_modal(ep_json, ep_mp3, memory_json, feed, ep_id)
+    if os.environ.get("PUBLISH_S3") == "1":
+        _publish_s3(ep_json, ep_mp3, feed, ep_id)
     return published
