@@ -1,50 +1,79 @@
 # Repo Radio
 
-A daily AI-generated podcast that reads the source code of GitHub's fastest-trending repos and calls **HYPE / REAL / MIXED** — with a Stripe credit wallet where $1 buys 10 on-air questions, and a host that remembers every codebase it has ever covered.
+> **We read the code so you don't have to.**
 
-**Live:** https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run
+[![Live demo](https://img.shields.io/badge/listen-live-7C3AED?style=for-the-badge)](https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run)
+[![Modal](https://img.shields.io/badge/runs%20on-Modal-7C3AED?style=for-the-badge)](https://modal.com)
+[![Status](https://img.shields.io/badge/status-hackathon%20build-22C55E?style=for-the-badge)](#run-it)
 
-The problem: a new "revolutionary" dev tool trends on GitHub every day. Everyone stars it; nobody reads the code. READMEs are marketing — the code is the truth. Repo Radio picks the fastest-rising repo by star velocity, has an LLM interrogate the actual source with file/line citations, and writes/voices a two-minute segment with a verdict. **Signature interaction:** as the host speaks, the cited files slide on screen and highlight at the exact lines, karaoke-style — every claim traces to real code.
+**Repo Radio** is a daily AI podcast for the repos blowing up on GitHub. Instead of repeating the README, it inspects the source, turns its findings into a short radio segment, and gives every episode a verdict:
 
-Live now: **ep-001 — "Fuxi: The Ghost in the Shell?"** (repo [`fuxicodex/Fuxi`](https://github.com/fuxicodex/Fuxi), verdict **HYPE**). The repo claims a Go AI coding agent but ships zero Go files, and its benchmark directory's scripts hardcode a folder literally named `Fuxi-github-promo`.
+| Verdict | Meaning |
+| :-- | :-- |
+| ![HYPE](https://img.shields.io/badge/HYPE-ef4444?style=flat-square) | The claims outrun the code. |
+| ![REAL](https://img.shields.io/badge/REAL-22c55e?style=flat-square) | The implementation earns the attention. |
+| ![MIXED](https://img.shields.io/badge/MIXED-f59e0b?style=flat-square) | Promising, with important caveats. |
 
-## Architecture
+**The proof is part of the show.** As the host speaks, the player follows the transcript and opens the cited file at the exact line range—so every claim can be checked in context.
 
-```mermaid
-flowchart LR
-    A[Trending picker<br/>star velocity, live 8.7/hr] --> B[Findings battery<br/>file/line citations]
-    B --> C[Qwen2.5-7B on Modal<br/>vLLM — writes script]
-    C --> D[Kokoro-82M on Modal<br/>voices script]
-    D --> E[Modal Volume<br/>episodes, audio, feed]
-    E --> F[Modal FastAPI /serve<br/>static site + wallet API]
-    G[Stripe wallet<br/>test mode] --> F
-    H[claude-mem<br/>search-before / write-after] --> C
-    H --> F
-    F --> I[Browser: player,<br/>karaoke sync, memory panel]
+## Listen to it
+
+**[Open the live player →](https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run)**
+
+Try the latest episode, **“Phone Harness: Driving Phones with Python,”** on [`ShawnPana/phone-harness`](https://github.com/ShawnPana/phone-harness): **REAL**.
+
+## How it works
+
+```text
+GitHub momentum → source-code findings → scripted episode → voiced audio → cited, synced player
+                                  ↘ listener question → credited on-air answer
 ```
 
-Pipeline in words: **trending picker** (star velocity, live-measured 8.7/hr) → **findings battery** with file/line citations → **Qwen2.5-7B via vLLM on Modal** writes the script (guided decoding was cut for a broken `outlines` dependency; prompt-enforced JSON + validate/retry instead) → **Kokoro-82M on Modal** voices it (timeline = cumulative durations + 0.35s gaps between segments, which drives karaoke sync) → published to a **Modal Volume**, served by a **Modal FastAPI app** (static site + wallet API together).
+- **Picks momentum, not popularity:** ranks repos by star velocity so the show covers a project while the conversation is happening.
+- **Makes claims auditable:** findings carry file and line citations; the UI turns them into synchronized code highlights.
+- **Sounds like a show:** Qwen writes the segment; Kokoro voices it; the generated timeline drives the transcript and waveform.
+- **Remembers the arc:** host memory connects a new repo with past episodes and verdict trends.
+- **Invites the audience in:** a Stripe credit wallet lets listeners call in a question and receive a cited response on air.
 
-## Sponsor map
+## Built with
 
-| Sponsor | Role | Status |
-|---|---|---|
-| **Greptile** | Indexed the whole watchlist via `/v2/repositories` (live). Was to fact-check README claims against source via `/v2/query` with a 5-query battery + power call-in answers. | Indexing live; `/v2/query` currently 404s (legacy endpoint) — see honest notes below. |
-| **Modal** | Hosts everything: Qwen2.5-7B (vLLM) writes scripts, Kokoro-82M voices them, and a FastAPI app serves the API + static site + audio + RSS from a Modal Volume. | Live — this is the whole deployment. |
-| **Stripe** | Wallet: Checkout top-ups (test mode) → webhook credits balance → atomic per-question debit. Tiers: $1→10cr, $5→55cr, $10→120cr. | Being wired by a second session — described here, not yet claimed as tested. |
-| **claude-mem** | Longitudinal host memory. Search-before-script builds a `memory_digest` fed into the Qwen prompt; write-after appends observations to `memory.json`, served to the UI's Host's Memory panel. | Worker on `localhost:37777`. |
+| What | Stack |
+| :-- | :-- |
+| Compute, models, deployment | **Modal** · Qwen2.5-7B/vLLM · Kokoro-82M |
+| Evidence and discovery | **GitHub** · **Greptile** |
+| Product | **FastAPI** · static web player · **Stripe** wallet |
+| Continuity | **claude-mem** |
 
-## Quickstart
+## Run it
+
+The default setup is deterministic and offline-friendly: `USE_MOCKS=1` uses the fixtures and makes no paid or live API calls.
 
 ```bash
-make smoke          # validates fixtures/, checks imports, confirms web/ serves — run before every push
-make bake-episode REPO=owner/name   # full pipeline: repo in -> published episode out
-make publish         # modal deploy modal_apps/script.py, tts.py, serve.py; prints URLs for ENDPOINTS.md/.env
+make smoke                         # validate the build
+make serve-local                   # open http://localhost:8080
+make bake-episode REPO=owner/name  # create an episode
 ```
 
-`USE_MOCKS=1` (default, in `.env`) runs every milestone against `fixtures/` — no live API calls, no cost, deterministic. Flip to `0` per-integration in `.env` once a real key/endpoint is wired and verified; `.env.example` documents every var (`GREPTILE_API_KEY`, `GITHUB_TOKEN`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `MODAL_SCRIPT_URL`/`MODAL_TTS_URL`/`MODAL_SERVE_URL`, `MODAL_VOLUME`, `CLAUDE_MEM_URL`, `SITE_URL`).
+To publish the Modal services, configure the variables in [`.env.example`](.env.example) and run:
 
-## Honest notes
+```bash
+make publish
+```
 
-- **Greptile:** the `/v2/repositories` indexing API is live and indexed the full watchlist. Their legacy `/v2/query` endpoint currently returns 404, so ep-001's five findings (the "reasoning engine is a phone call"-style claims, the missing Go files, the hardcoded `Fuxi-github-promo` path) were produced by direct source analysis with verified file/line citations, in the same shape the query battery would have returned, while the query integration awaits a fixed endpoint on Greptile's side.
-- **AWS:** an S3/CloudFront distribution path exists in code behind an env flag (credits were pending approval for the event), but it is **not deployed**. Modal serves everything today — models, API, and static site, from one platform.
+## Project map
+
+| Directory | Purpose |
+| :-- | :-- |
+| [`pipeline/`](pipeline) | Research, script, voice, citation, and publishing stages |
+| [`modal_apps/`](modal_apps) | Modal deployments for script, TTS, and serving |
+| [`server/`](server) | FastAPI, wallet, Stripe webhook, and call-in flow |
+| [`web/`](web) | Player, episode data, audio, transcript sync, and code cards |
+| [`contracts/`](contracts) | Episode and wallet contracts |
+
+## Contributors
+
+Built by [Nithin Arus](https://github.com/nithinaru) with [OpenAI Codex](https://openai.com/codex).
+
+---
+
+*Repo Radio turns the GitHub hype cycle into a show you can verify.*
