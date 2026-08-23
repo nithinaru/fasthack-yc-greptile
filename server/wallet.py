@@ -6,8 +6,17 @@ no read-then-write race, works fine under sqlite3's own connection-level lock to
 
 DB file path: settings.WALLET_DB (default DATA_DIR/"wallet.db"; on Modal that's
 a path on the mounted Volume so balances survive container restarts).
+
+Modal caveat (found live during the money-loop test): SQLite-on-Volume is NOT
+shared across concurrently running containers — the webhook container credited
+the wallet but the container answering GET /api/wallet never saw it. So when
+running inside a Modal container we use a shared modal.Dict as the balance
+store instead (cross-container, survives restarts). SQLite stays as the
+local/test backend. Debit via Dict is check-then-set (not atomic); a same-user
+double-ask race could over-spend one credit — acceptable for the demo.
 """
 import logging
+import os
 import sqlite3
 import threading
 
@@ -17,6 +26,25 @@ log = logging.getLogger("server.wallet")
 
 _lock = threading.Lock()
 _conn: sqlite3.Connection | None = None
+
+_dict = None  # shared modal.Dict when on Modal, else None
+
+
+def _get_dict():
+    """Return the shared modal.Dict wallet store when running inside a Modal
+    container, else None (SQLite backend). Cached after first resolution."""
+    global _dict
+    if _dict is not None:
+        return _dict
+    if not os.environ.get("MODAL_TASK_ID"):  # set inside Modal containers only
+        return None
+    with _lock:
+        if _dict is None:
+            import modal
+
+            _dict = modal.Dict.from_name("repo-radio-wallet", create_if_missing=True)
+            log.info("wallet store: modal.Dict 'repo-radio-wallet'")
+    return _dict
 
 
 def _get_conn() -> sqlite3.Connection:
@@ -67,6 +95,9 @@ def _maybe_seed_mock_wallet(conn: sqlite3.Connection) -> None:
 
 
 def get_credits(user_id: str) -> int:
+    d = _get_dict()
+    if d is not None:
+        return int(d.get(user_id, 0))
     conn = _get_conn()
     with _lock:
         row = conn.execute(
@@ -78,6 +109,11 @@ def get_credits(user_id: str) -> int:
 def credit(user_id: str, credits: int) -> int:
     """Add `credits` to user_id's balance (creating the row if needed). Returns
     the new balance."""
+    d = _get_dict()
+    if d is not None:
+        new_balance = int(d.get(user_id, 0)) + credits
+        d[user_id] = new_balance
+        return new_balance
     conn = _get_conn()
     with _lock:
         conn.execute(
@@ -96,6 +132,13 @@ def debit(user_id: str, n: int = 1) -> bool:
     """Atomically subtract n credits if the balance covers it. Returns True on
     success, False if there were insufficient credits (or no wallet at all —
     the UPDATE simply matches zero rows)."""
+    d = _get_dict()
+    if d is not None:
+        balance = int(d.get(user_id, 0))
+        if balance < n:
+            return False
+        d[user_id] = balance - n
+        return True
     conn = _get_conn()
     with _lock:
         cur = conn.execute(
@@ -109,8 +152,9 @@ def debit(user_id: str, n: int = 1) -> bool:
 def _reset_for_tests() -> None:
     """Test helper: drop the cached connection so a fresh settings.WALLET_DB
     (e.g. an in-memory or tmp-file DB) takes effect on the next call."""
-    global _conn
+    global _conn, _dict
     with _lock:
         if _conn is not None:
             _conn.close()
         _conn = None
+        _dict = None
