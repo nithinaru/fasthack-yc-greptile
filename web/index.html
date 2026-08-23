@@ -143,11 +143,27 @@
     </div>
     <div id="onair" class="onair ml-2"><span class="dot"></span>ON AIR</div>
     <div class="flex-1"></div>
-    <button id="wallet-chip" class="card font-mono2 text-[13px] px-4 py-2 hover:border-[--amber] transition-colors" title="Your wallet">
-      <span style="color: var(--amber)">&#9672;</span>
-      <span id="wallet-credits" class="font-bold">–</span>
-      <span style="color: var(--text-2)">credits</span>
-    </button>
+    <div id="wallet-chip" class="card font-mono2 text-[13px] flex items-center relative" title="Your wallet">
+      <button id="wallet-open" class="px-4 py-2 flex items-center gap-2 hover:bg-white/[.04] transition-colors cursor-pointer" title="Top up credits">
+        <span style="color: var(--amber)">&#9672;</span>
+        <span id="wallet-credits" class="font-bold">–</span>
+        <span style="color: var(--text-2)">credits</span>
+        <span class="text-[15px] leading-none font-bold" style="color: var(--amber)">+</span>
+      </button>
+      <button id="wallet-user" class="px-3 py-2 flex items-center gap-1.5 text-[10px] hover:bg-white/[.04] transition-colors cursor-pointer" style="border-left: 1px solid var(--border); color: var(--text-2)" title="Switch listener (change email)">
+        <span id="wallet-user-label" class="max-w-[90px] truncate"></span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
+      </button>
+      <div id="wallet-popover" class="hidden card absolute right-0 top-[110%] z-40 p-3 w-56 shadow-xl" style="border-color: var(--amber-dim)">
+        <div class="font-mono2 text-[10px] tracking-[0.15em] mb-2" style="color: var(--teal)">TOP UP THE WALLET</div>
+        <div class="flex flex-col gap-1.5">
+          <button class="tier-btn chip-tier text-left px-3 py-2 rounded hover:bg-white/[.05] transition-colors flex justify-between" data-tier="1"><span>$1</span><span style="color: var(--amber)">10 credits</span></button>
+          <button class="tier-btn chip-tier text-left px-3 py-2 rounded hover:bg-white/[.05] transition-colors flex justify-between" data-tier="5"><span>$5</span><span style="color: var(--amber)">55 credits</span></button>
+          <button class="tier-btn chip-tier text-left px-3 py-2 rounded hover:bg-white/[.05] transition-colors flex justify-between" data-tier="10"><span>$10</span><span style="color: var(--amber)">120 credits</span></button>
+        </div>
+        <div id="wallet-popover-status" class="font-mono2 text-[10px] mt-2 min-h-[14px]" style="color: var(--text-2)"></div>
+      </div>
+    </div>
   </header>
 
   <!-- ── Main grid ───────────────────────────────────────── -->

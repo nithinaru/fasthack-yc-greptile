@@ -97,13 +97,20 @@ export function initWallet({ config, els, getEpisode, onQaSegment }) {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // ══ MOCK mode ══
+  // Per-listener balances so switching email gives a fresh 0-credit wallet
+  // (the demo reset). The default listener keeps the legacy global key's value.
+  function mockKey() { return `${MOCK_KEY}:${userId}`; }
   function mockBalance() {
-    let v = localStorage.getItem(MOCK_KEY);
-    if (v === null) { v = "100"; localStorage.setItem(MOCK_KEY, v); }
+    let v = localStorage.getItem(mockKey());
+    if (v === null) {
+      const isDefault = userId === config.DEFAULT_USER.toLowerCase();
+      v = isDefault ? (localStorage.getItem(MOCK_KEY) ?? "100") : "0";
+      localStorage.setItem(mockKey(), v);
+    }
     return parseInt(v, 10) || 0;
   }
   function mockSetBalance(v) {
-    localStorage.setItem(MOCK_KEY, String(v));
+    localStorage.setItem(mockKey(), String(v));
     setCredits(v);
   }
 
@@ -238,6 +245,61 @@ export function initWallet({ config, els, getEpisode, onQaSegment }) {
       if (config.USE_MOCKS) mockTopup(tier); else liveTopup(tier);
     });
   });
+
+  // ── Wallet chip: pressable at any balance → tier popover; email switcher ──
+  const popover = document.getElementById("wallet-popover");
+  const popStatus = document.getElementById("wallet-popover-status");
+  const userLabel = document.getElementById("wallet-user-label");
+  const openBtn = document.getElementById("wallet-open");
+  const userBtn = document.getElementById("wallet-user");
+
+  function renderUserLabel() {
+    if (userLabel) userLabel.textContent = userId.split("@")[0] || userId;
+    if (userBtn) userBtn.title = `Listener: ${userId} — click to switch`;
+  }
+
+  if (openBtn && popover) {
+    openBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      popover.classList.toggle("hidden");
+      if (popStatus) popStatus.textContent = "";
+    });
+    document.addEventListener("click", (e) => {
+      if (!popover.classList.contains("hidden") && !popover.contains(e.target)) {
+        popover.classList.add("hidden");
+      }
+    });
+    popover.querySelectorAll(".chip-tier").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const tier = Number(btn.dataset.tier);
+        if (config.USE_MOCKS) {
+          if (popStatus) popStatus.textContent = "redirecting to Stripe checkout…";
+          await sleep(1200);
+          mockSetBalance(mockBalance() + TIER_CREDITS[tier]);
+          if (popStatus) popStatus.textContent = "payment confirmed ✓";
+          setTimeout(() => { popover.classList.add("hidden"); if (popStatus) popStatus.textContent = ""; }, 1200);
+        } else {
+          if (popStatus) popStatus.textContent = "redirecting to Stripe checkout…";
+          liveTopup(tier); // navigates away to Checkout
+        }
+      });
+    });
+  }
+
+  if (userBtn) {
+    userBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const next = prompt("Listener email (fresh email = fresh 0-credit wallet):", userId);
+      if (!next || !next.trim()) return;
+      userId = next.trim().toLowerCase();
+      localStorage.setItem(USER_KEY, userId);
+      renderUserLabel();
+      if (config.USE_MOCKS) setCredits(mockBalance());
+      else { setCredits(0, { animate: false }); refreshWallet(); }
+    });
+  }
+
+  renderUserLabel();
 
   // ── Boot ──
   if (config.USE_MOCKS) {
