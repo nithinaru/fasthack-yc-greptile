@@ -80,4 +80,22 @@ def fastapi_app():
     # from the environment above.
     import app as server_app  # noqa: E402  (path set up just above)
 
+    # Modal Volumes snapshot at mount time — without an explicit reload this
+    # container never sees episodes the pipeline publishes after it boots.
+    # Throttled to once per 3s so request latency stays flat.
+    import time
+
+    state = {"last": 0.0}
+
+    @server_app.app.middleware("http")
+    async def _reload_volume(request, call_next):
+        now = time.monotonic()
+        if now - state["last"] > 3.0:
+            state["last"] = now
+            try:
+                data_volume.reload()
+            except Exception:
+                pass  # a failed reload just means slightly stale reads
+        return await call_next(request)
+
     return server_app.app
