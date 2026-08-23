@@ -114,3 +114,30 @@ curl -sS -X POST "https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/
 curl -sS "https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/api/ask/<job_id>" | python3 -m json.tool
 # -> {"status": "pending"} | {"status": "done", "qa_segment": {...}}
 ```
+
+---
+
+## Warm latency (measured 2026-08-23)
+
+All three apps now run with `MIN_CONTAINERS=1` (script and tts were already
+set from initial deploy; serve was redeployed today with
+`SERVE_MIN_CONTAINERS=1 .venv/bin/modal deploy modal_apps/serve.py`, no code
+changes). Each row below discarded one warm-up call before taking samples.
+
+| Endpoint | Check | Latency (samples) | keep_warm |
+|---|---|---|---|
+| `/script` `GET /health` | health ping (not a generation call) | 0.319s, 0.261s, 0.337s | ✅ `SCRIPT_MIN_CONTAINERS=1` |
+| `/tts` `POST /` | 1-segment synthesis (real audio) | 0.967s total, `duration_s`=5.475 | ✅ `REPO_RADIO_TTS_MIN_CONTAINERS=1` |
+| `/serve` `GET /episodes/ep-001.json` | static episode JSON fetch | 0.710s, 0.586s, 0.598s | ✅ `SERVE_MIN_CONTAINERS=1` (redeployed today) |
+
+Known cold-start numbers (not re-measured today — script generation was not
+re-run to avoid burning GPU repeatedly):
+
+| Endpoint | Cold-start | Notes |
+|---|---|---|
+| `/script` | ≈42–64s | container + model load; one known full generation bake ≈53s warm (after cold load) |
+| `/tts` | ≈100s image pull + ≈28s | for an 8-segment synthesis, warm-ish container |
+| `/serve` | ≈5–8s | container + static asset mount, no model load |
+
+All three endpoints confirmed responding 200 and keep-warm (`MIN_CONTAINERS=1`)
+as of this measurement pass.
