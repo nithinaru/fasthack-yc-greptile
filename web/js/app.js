@@ -82,6 +82,19 @@ function renderEpisodeList() {
   });
 }
 
+// Truncate to ~n chars at a word boundary (claims_checked strings run 200+
+// chars and may end mid-word/mid-sentence — never chop inside a word).
+function truncateWords(s, n) {
+  if (!s || s.length <= n) return s || "";
+  const cut = s.slice(0, n);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > n * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd() + "…";
+}
+
+function escHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 // ── Host's Memory panel (memory.json shape is uncontracted — render defensively) ──
 async function renderMemory() {
   const url = `${CFG.STATIC_BASE}/memory.json`;
@@ -93,19 +106,27 @@ async function renderMemory() {
     panel.innerHTML = `<div class="font-mono2 text-[11px]" style="color: var(--text-2)">// no memories yet — the host is young</div>`;
     return;
   }
-  panel.innerHTML = entries.map((e) => `
+  panel.innerHTML = [...entries].reverse().map((e) => {
+    const claims = e.claims_checked || e.facts || e.notes || (e.note ? [e.note] : []);
+    const claimItems = claims.slice(0, 3)
+      .map((f) => `<li class="text-[12px] leading-snug" style="color: var(--text-2)">· ${escHtml(truncateWords(f, 140))}</li>`)
+      .join("");
+    const cited = Array.isArray(e.cited_files) && e.cited_files.length
+      ? `<div class="font-mono2 text-[10px] mt-1 truncate" style="color: var(--text-2)" title="${escHtml(e.cited_files.join(", "))}">cited: ${escHtml(e.cited_files.slice(0, 4).join(", "))}${e.cited_files.length > 4 ? " …" : ""}</div>`
+      : "";
+    return `
     <div class="border-l-2 pl-3" style="border-color: var(--amber-dim)">
       <div class="flex items-center gap-2">
-        <span class="font-mono2 text-[10px]" style="color: var(--amber)">${e.episode_id || e.episode || ""}</span>
-        <span class="font-mono2 text-[11px]" style="color: var(--text)">${e.repo || ""}</span>
-        ${e.verdict ? `<span class="w-1.5 h-1.5 rounded-full vdot-${e.verdict}"></span>` : ""}
+        <span class="font-mono2 text-[10px]" style="color: var(--amber)">${escHtml(e.episode_id || e.episode || "")}</span>
+        <span class="font-mono2 text-[11px] truncate" style="color: var(--text)">${escHtml(e.repo || "")}</span>
+        ${e.verdict ? `<span class="w-1.5 h-1.5 rounded-full vdot-${e.verdict}" title="${escHtml(e.verdict)}"></span>` : ""}
         <span class="flex-1"></span>
-        <span class="font-mono2 text-[9px]" style="color: var(--text-2)">${(e.ts || e.date || "").slice(0, 10)}</span>
+        <span class="font-mono2 text-[9px] shrink-0" style="color: var(--text-2)">${(e.ts || e.date || "").slice(0, 10)}</span>
       </div>
-      <ul class="mt-1 space-y-0.5">
-        ${(e.facts || e.notes || e.claims_checked || (e.note ? [e.note] : [])).map((f) => `<li class="text-[12px] leading-snug" style="color: var(--text-2)">· ${f}</li>`).join("")}
-      </ul>
-    </div>`).join("");
+      <ul class="mt-1 space-y-0.5">${claimItems}</ul>
+      ${cited}
+    </div>`;
+  }).join("");
 }
 
 function wireMemoryToggle() {
