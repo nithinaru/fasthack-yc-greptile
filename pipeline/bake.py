@@ -67,8 +67,10 @@ def bake(repo: str | None, ep_id: str | None = None, branch: str = "main") -> di
 
     print("[7/7] assemble + publish + memory write-after", file=sys.stderr)
     episode = publish.assemble_episode(ep_id, pick, ep_script, voice_meta, cited, memory_refs)
-    urls = publish.publish_episode(episode, mp3_path)
+    # memory BEFORE publish — publish uploads memory.json to the Volume, so the
+    # new observation must already be in it (was uploading a stale copy).
     memory.write_observations(episode, findings.get("battery", []))
+    urls = publish.publish_episode(episode, mp3_path)
 
     print(f"=== {ep_id} published: {urls} ===", file=sys.stderr)
     return episode
