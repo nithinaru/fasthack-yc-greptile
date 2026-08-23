@@ -1,9 +1,10 @@
 """Stripe Checkout top-ups + webhook crediting (PRD §3.4, test mode all day).
 
-Mock mode (USE_MOCKS=1) or no STRIPE_SECRET_KEY: /api/topup credits the wallet
-immediately and returns a fake success-redirect URL so the frontend can build
-the full redirect -> poll-wallet -> balance-count-up loop with no Stripe
-account at all.
+With STRIPE_SECRET_KEY set, /api/topup ALWAYS creates a real Checkout Session
+(USE_MOCKS does not bypass it) and credits land only via the signed
+checkout.session.completed webhook. Only with no key at all (keyless local
+dev) does /api/topup instant-credit and return a fake success-redirect URL so
+the UI loop still works without a Stripe account.
 """
 import json
 import logging
@@ -72,7 +73,11 @@ def _reset_events_for_tests() -> None:
 
 
 def _keyless() -> bool:
-    return settings.USE_MOCKS or not settings.STRIPE_SECRET_KEY
+    # Live Stripe wins whenever a key is present. USE_MOCKS deliberately does
+    # NOT disable checkout here — a stale mock flag was silently instant-
+    # crediting wallets with real test keys configured. Mock/instant-credit
+    # only exists for keyless local dev.
+    return not settings.STRIPE_SECRET_KEY
 
 
 def create_checkout(user_id: str, tier: int) -> str:
@@ -104,16 +109,17 @@ def create_checkout(user_id: str, tier: int) -> str:
         }],
         metadata={"user_id": user_id, "credits": str(credits)},
         success_url=f"{settings.SITE_URL}/?topup=success",
-        cancel_url=f"{settings.SITE_URL}/?topup=cancelled",
+        cancel_url=f"{settings.SITE_URL}/",
     )
     return session.url
 
 
 def handle_webhook(payload: bytes, sig_header: str | None) -> None:
     """Verify + process checkout.session.completed. Raises ValueError on a bad
-    signature. Mock mode skips verification and accepts a raw Stripe-shaped
-    event JSON (what `stripe trigger` / a hand-rolled curl sends)."""
-    if settings.USE_MOCKS:
+    signature. Verification is gated on the webhook secret being configured —
+    NOT on USE_MOCKS — so live keys always mean verified-only crediting; only
+    keyless dev accepts a raw Stripe-shaped event JSON."""
+    if not settings.STRIPE_WEBHOOK_SECRET:
         event = json.loads(payload)
     else:
         import stripe
