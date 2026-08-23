@@ -69,6 +69,10 @@ def _call_modal(payload: dict) -> dict:
     url = os.environ.get("MODAL_SCRIPT_URL")
     if not url:
         raise RuntimeError("MODAL_SCRIPT_URL unset — Lane B's ENDPOINTS.md not wired into .env yet")
+    # .env carries the app base URL; the ASGI app serves the generator at /script.
+    url = url.rstrip("/")
+    if not url.endswith("/script"):
+        url += "/script"
     req = urllib.request.Request(
         url, data=json.dumps(payload).encode(), method="POST",
         headers={"Content-Type": "application/json"},
