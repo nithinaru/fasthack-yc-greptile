@@ -43,6 +43,9 @@ image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
         "vllm==0.6.3.post1",
+        # outlines (vllm's guided-decoding backend) forgets these transitive deps
+        "pyairports",
+        "pycountry",
         "fastapi[standard]==0.115.4",
         "huggingface_hub==0.26.2",
         "hf_transfer==0.1.8",
