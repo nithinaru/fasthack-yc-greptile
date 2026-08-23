@@ -16,8 +16,10 @@ Record the three Modal URLs here (and mirror them into `.env`:
 
 Strict JSON out: `{"title","verdict":"HYPE|REAL|MIXED","segments":[{"text","citation":{"file","start_line","end_line"}|null}]}`
 
+Route is `POST {base}/script` — the bare base URL 404s.
+
 ```bash
-curl -sS "https://nithin-alaska--repo-radio-script-script-web.modal.run" \
+curl -sS "https://nithin-alaska--repo-radio-script-script-web.modal.run/script" \
   -H "content-type: application/json" \
   -d '{
     "repo_meta": {
@@ -41,7 +43,7 @@ curl -sS "https://nithin-alaska--repo-radio-script-script-web.modal.run" \
 Answer mode (call-in questions):
 
 ```bash
-curl -sS "https://nithin-alaska--repo-radio-script-script-web.modal.run" \
+curl -sS "https://nithin-alaska--repo-radio-script-script-web.modal.run/script" \
   -H "content-type: application/json" \
   -d '{
     "mode": "answer",
