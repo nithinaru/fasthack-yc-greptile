@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repo Radio — 102.3 FM · we read the code so you don't have to</title>
+<meta property="og:title" content="Repo Radio — 102.3 FM">
+<meta property="og:description" content="A daily AI podcast that reads the source code of GitHub's trending repos and calls HYPE / REAL / MIXED.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%230A0A0F' stroke='%23FFB020' stroke-width='6'/><circle cx='50' cy='50' r='14' fill='%23F43F5E'/></svg>">
+<!-- Vendored locally so the demo needs zero network beyond CloudFront (PRD §9.5) -->
+<link href="vendor/fonts/fonts.css" rel="stylesheet">
+<script src="vendor/tailwind.js"></script>
+<style>
+  :root {
+    --bg: #0A0A0F;
+    --glow: #1A1025;
+    --card: #12121A;
+    --border: #26263A;
+    --amber: #FFB020;
+    --amber-dim: #7A5A1E;
+    --text: #EDEDF2;
+    --text-2: #8B8B9E;
+    --teal: #5EEAD4;
+    --hype: #F43F5E;   --hype-bg: #2A0E14;
+    --real: #34D399;   --real-bg: #0B231A;
+    --mixed: #FBBF24;  --mixed-bg: #261C08;
+  }
+  html { background: var(--bg); }
+  body {
+    background:
+      radial-gradient(900px 480px at 32% 8%, var(--glow) 0%, transparent 70%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Inter", system-ui, sans-serif;
+    transition: background 1.2s ease;
+  }
+  body.playing {
+    background:
+      radial-gradient(1000px 540px at 32% 8%, #251536 0%, transparent 70%),
+      var(--bg);
+  }
+  .font-display { font-family: "Hedvig Letters Serif", Georgia, serif; font-optical-sizing: none; font-variation-settings: "opsz" 24; letter-spacing: -0.015em; }
+  .font-mono2 { font-family: "JetBrains Mono", ui-monospace, monospace; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+
+  /* ON AIR lamp */
+  .onair {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: "JetBrains Mono", monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.18em; padding: 6px 14px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--text-2);
+    transition: all .4s ease;
+  }
+  .onair .dot { width: 8px; height: 8px; border-radius: 50%; background: #3A3A4A; transition: background .4s; }
+  .onair.live { color: #FCA5B1; border-color: rgba(244,63,94,.55); box-shadow: 0 0 12px 2px rgba(244,63,94,.6); animation: onairPulse 2s ease-in-out infinite; }
+  .onair.live .dot { background: var(--hype); box-shadow: 0 0 8px 2px rgba(244,63,94,.8); }
+  @keyframes onairPulse {
+    0%, 100% { box-shadow: 0 0 12px 2px rgba(244,63,94,.6); }
+    50%      { box-shadow: 0 0 20px 5px rgba(244,63,94,.35); }
+  }
+
+  /* Verdict badges */
+  .badge {
+    font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 12px;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    padding: 5px 12px; border-radius: 6px; border: 1px solid;
+  }
+  .badge-HYPE  { color: var(--hype);  background: var(--hype-bg);  border-color: rgba(244,63,94,.4); }
+  .badge-REAL  { color: var(--real);  background: var(--real-bg);  border-color: rgba(52,211,153,.4); }
+  .badge-MIXED { color: var(--mixed); background: var(--mixed-bg); border-color: rgba(251,191,36,.4); }
+  .vdot-HYPE { background: var(--hype); } .vdot-REAL { background: var(--real); } .vdot-MIXED { background: var(--mixed); }
+
+  /* Transcript */
+  #transcript { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  .seg {
+    padding: 10px 14px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0;
+    color: var(--text-2); font-size: 15px; line-height: 1.55; cursor: pointer;
+    transition: background .25s, color .25s, border-color .25s;
+  }
+  .seg:hover { background: rgba(255,176,32,.05); color: var(--text); }
+  .seg.active {
+    background: linear-gradient(90deg, rgba(255,176,32,.10), transparent 85%);
+    border-left-color: var(--amber); color: var(--text);
+    text-shadow: 0 0 24px rgba(255,176,32,.25);
+  }
+  .seg .ts { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--amber-dim); margin-right: 8px; }
+  .seg.active .ts { color: var(--amber); }
+  .seg.qa { border-left-color: var(--teal); }
+  .seg .cite-chip { font-family: "JetBrains Mono", monospace; font-size: 10px; color: var(--teal); opacity: .8; margin-left: 8px; }
+
+  /* Code card */
+  #code-body { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  #code-body pre { font-family: "JetBrains Mono", monospace; font-size: 12.5px; line-height: 1.6; }
+  #code-body .line { display: block; padding: 0 14px 0 10px; border-left: 3px solid transparent; white-space: pre; color: #B9B9C9; }
+  #code-body .line.cited {
+    border-left-color: var(--amber);
+    background: linear-gradient(90deg, rgba(255,176,32,.09), transparent 70%);
+    color: var(--text);
+    box-shadow: inset 0 0 18px rgba(255,176,32,.03);
+  }
+
+  /* Equalizer bars (now-playing episode row) */
+  .eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; width: 18px; }
+  .eq span { width: 2px; background: var(--amber); animation: eqb 1s ease-in-out infinite; transform-origin: bottom; }
+  .eq span:nth-child(1) { animation-delay: -.9s; } .eq span:nth-child(2) { animation-delay: -.6s; }
+  .eq span:nth-child(3) { animation-delay: -.3s; } .eq span:nth-child(4) { animation-delay: -.7s; }
+  .eq span:nth-child(5) { animation-delay: -.1s; }
+  @keyframes eqb { 0%,100% { height: 3px; } 50% { height: 12px; } }
+  .eq.paused span { animation-play-state: paused; height: 3px; }
+
+  /* Buttons */
+  .btn-amber {
+    background: var(--amber); color: #17120A; font-weight: 600;
+    border-radius: 8px; transition: filter .2s, transform .1s;
+  }
+  .btn-amber:hover { filter: brightness(1.08); }
+  .btn-amber:active { transform: scale(.98); }
+  .btn-amber:disabled { filter: saturate(.3) brightness(.7); cursor: not-allowed; }
+
+  /* Scanlines (3% opacity garnish) */
+  .scanlines { pointer-events: none; position: fixed; inset: 0; z-index: 50; opacity: .03;
+    background: repeating-linear-gradient(0deg, #fff 0 1px, transparent 1px 3px); }
+
+  .fadein { animation: fadein .5s ease both; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  @keyframes creditPop { 0% { transform: scale(1); } 40% { transform: scale(1.18); color: var(--amber); } 100% { transform: scale(1); } }
+  .credit-pop { animation: creditPop .5s ease; display: inline-block; }
+</style>
+</head>
+<body class="min-h-screen antialiased">
+<div class="scanlines"></div>
+
+<div class="mx-auto max-w-[1280px] px-4 sm:px-6 pb-28">
+
+  <!-- ── Top bar ─────────────────────────────────────────── -->
+  <header class="flex items-center gap-4 py-5 border-b" style="border-color: var(--border)">
+    <div class="flex items-baseline gap-3">
+      <span class="font-display text-2xl tracking-tight">REPO RADIO</span>
+      <span class="font-mono2 text-[11px] tracking-[0.2em]" style="color: var(--teal)">102.3 FM</span>
+    </div>
+    <div id="onair" class="onair ml-2"><span class="dot"></span>ON AIR</div>
+    <div class="flex-1"></div>
+    <button id="wallet-chip" class="card font-mono2 text-[13px] px-4 py-2 hover:border-[--amber] transition-colors" title="Your wallet">
+      <span style="color: var(--amber)">&#9672;</span>
+      <span id="wallet-credits" class="font-bold">–</span>
+      <span style="color: var(--text-2)">credits</span>
+    </button>
+  </header>
+
+  <!-- ── Main grid ───────────────────────────────────────── -->
+  <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-8">
+
+    <!-- Hero (cols 1–8) -->
+    <section class="lg:col-span-8">
+      <div class="fadein">
+        <div class="flex items-center gap-3">
+          <a id="repo-name" href="#" target="_blank" rel="noopener" class="font-mono2 text-[13px] hover:underline" style="color: var(--text-2)">—/—</a>
+          <span id="repo-meta" class="font-mono2 text-[11px]" style="color: var(--amber-dim)"></span>
+        </div>
+        <div class="flex items-start justify-between gap-6 mt-2">
+          <h1 id="ep-title" class="font-display text-4xl sm:text-5xl leading-[1.08]">Tuning in…</h1>
+          <span id="verdict-badge" class="badge badge-MIXED mt-3 shrink-0 hidden">—</span>
+        </div>
+      </div>
+
+      <!-- Player -->
+      <div class="mt-7">
+        <div id="waveform" class="w-full min-h-[72px]"></div>
+        <div class="flex items-center gap-4 mt-4">
+          <button id="play-btn" class="btn-amber w-12 h-12 rounded-full flex items-center justify-center text-xl" aria-label="Play">
+            <svg id="icon-play" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="icon-pause" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="hidden"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+          </button>
+          <span class="font-mono2 text-[13px]" style="color: var(--text-2)">
+            <span id="time-cur" style="color: var(--amber)">0:00</span> / <span id="time-dur">0:00</span>
+          </span>
+          <span class="flex-1"></span>
+          <span id="ep-date" class="font-mono2 text-[11px] tracking-[0.15em]" style="color: var(--text-2)"></span>
+        </div>
+      </div>
+
+      <!-- Sync panel: transcript + code -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+        <div class="card overflow-hidden">
+          <div class="px-4 py-2.5 border-b flex items-center gap-2" style="border-color: var(--border)">
+            <span class="font-mono2 text-[10px] tracking-[0.2em]" style="color: var(--teal)">TRANSCRIPT</span>
+          </div>
+          <div id="transcript" class="h-[420px] overflow-y-auto py-2 pr-1"></div>
+        </div>
+        <div class="card overflow-hidden">
+          <div class="px-4 py-2.5 border-b flex items-center gap-2" style="border-color: var(--border)">
+            <span class="font-mono2 text-[10px] tracking-[0.2em]" style="color: var(--teal)">SOURCE</span>
+            <span id="code-file" class="font-mono2 text-[12px] px-2 py-0.5 rounded" style="background: var(--bg); color: var(--amber)">—</span>
+            <span id="code-lines" class="font-mono2 text-[10px]" style="color: var(--text-2)"></span>
+          </div>
+          <div id="code-body" class="h-[420px] overflow-auto py-2">
+            <div class="h-full flex items-center justify-center font-mono2 text-[12px]" style="color: var(--text-2)">// cited code appears here as the host speaks</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sidebar (cols 9–12) -->
+    <aside class="lg:col-span-4 space-y-4">
+      <div class="card overflow-hidden">
+        <div class="px-4 py-2.5 border-b" style="border-color: var(--border)">
+          <span class="font-mono2 text-[10px] tracking-[0.2em]" style="color: var(--teal)">EPISODES</span>
+        </div>
+        <div id="episode-list" class="divide-y" style="--tw-divide-opacity:1; border-color: var(--border)"></div>
+      </div>
+
+      <div class="card overflow-hidden">
+        <button id="memory-toggle" class="w-full px-4 py-2.5 flex items-center gap-2 text-left hover:bg-white/[.02]">
+          <span class="font-mono2 text-[10px] tracking-[0.2em]" style="color: var(--teal)">HOST'S MEMORY</span>
+          <span class="flex-1"></span>
+          <span id="memory-caret" class="font-mono2 text-[11px] transition-transform" style="color: var(--text-2)">▸</span>
+        </button>
+        <div id="memory-panel" class="hidden border-t px-4 py-3 space-y-3 max-h-[300px] overflow-y-auto" style="border-color: var(--border)"></div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<!-- ── CALL THE SHOW footer strip ─────────────────────────── -->
+<footer class="fixed bottom-0 inset-x-0 z-40 border-t backdrop-blur-md" style="border-color: var(--border); background: rgba(10,10,15,.85)">
+  <div class="mx-auto max-w-[1280px] px-4 sm:px-6 py-3">
+    <form id="ask-form" class="flex items-center gap-3">
+      <span class="font-mono2 text-[11px] tracking-[0.18em] hidden sm:inline" style="color: var(--amber)">☎ CALL THE SHOW</span>
+      <input id="ask-input" type="text" required maxlength="200" placeholder="Ask the host anything about this codebase…"
+        class="flex-1 bg-transparent card px-4 py-2.5 text-[14px] outline-none focus:border-[--amber] placeholder:text-[#55556A]">
+      <button id="ask-btn" type="submit" class="btn-amber font-mono2 text-[12px] tracking-wide px-5 py-2.5">ASK · 1 CREDIT</button>
+    </form>
+    <div id="topup-tiers" class="hidden items-center gap-3">
+      <span class="font-mono2 text-[11px] tracking-[0.18em]" style="color: var(--hype)">WALLET EMPTY</span>
+      <span class="text-[13px]" style="color: var(--text-2)">Top up to call the show:</span>
+      <button data-tier="5"  class="tier-btn card font-mono2 text-[12px] px-4 py-2 hover:border-[--amber]">$5 → 45 cr</button>
+      <button data-tier="10" class="tier-btn card font-mono2 text-[12px] px-4 py-2 hover:border-[--amber]">$10 → 100 cr</button>
+      <button data-tier="20" class="tier-btn card font-mono2 text-[12px] px-4 py-2 hover:border-[--amber]">$20 → 220 cr</button>
+      <span id="topup-status" class="font-mono2 text-[11px]" style="color: var(--text-2)"></span>
+    </div>
+    <div id="ask-status" class="hidden font-mono2 text-[11px] pt-2" style="color: var(--teal)"></div>
+  </div>
+</footer>
+
+<script src="config.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

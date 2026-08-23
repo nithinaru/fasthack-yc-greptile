@@ -1,0 +1,16 @@
+{
+  "entries": [
+    {
+      "episode_id": "ep-000",
+      "repo": "cavemanlabs/caveman",
+      "verdict": "MIXED",
+      "ts": "2026-08-22T20:00:00Z",
+      "facts": [
+        "README claims full agent runtime; llm/client.py is a 40-line wrapper around a chat API",
+        "core/scheduler.py: priority queues with decay — genuinely novel, worth stealing",
+        "memory/store.py 'long-term memory' is a 6-line dict with TODO 'make this persistent'",
+        "4,000 stars in 3 days at airtime; category: agent-framework, sdk-wrapper"
+      ]
+    }
+  ]
+}

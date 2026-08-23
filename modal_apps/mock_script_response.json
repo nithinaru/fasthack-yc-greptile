@@ -1,0 +1,14 @@
+{
+  "title": "Caveman: 4,000 stars and a six-line memory",
+  "verdict": "MIXED",
+  "segments": [
+    {"text": "It's 11:47 PM in San Francisco, and GitHub's hottest new repo just crossed four thousand stars. This is Repo Radio — I read the code so you don't have to.", "citation": null},
+    {"text": "Tonight's subject: Caveman. The README promises a full autonomous agent runtime — memory, tools, scheduling, the works. Four thousand stars in three days. Let's see what's actually in the cave.", "citation": null},
+    {"text": "Crack open core/agent.py and the skeleton is clean: an Agent class, a tool registry, a run loop. Credit where due — this is readable code.", "citation": {"file": "core/agent.py", "start_line": 12, "end_line": 38}},
+    {"text": "But here in llm/client.py? The 'proprietary reasoning engine' is forty lines wrapping someone else's chat API. That's not a reasoning engine, folks. That's a phone call.", "citation": {"file": "llm/client.py", "start_line": 8, "end_line": 24}},
+    {"text": "Now, the plot twist. The scheduler is legitimately clever — priority queues with decay, so stale tasks lose their place in line. I haven't seen that pattern in the other frameworks. This is the part worth stealing.", "citation": {"file": "core/scheduler.py", "start_line": 51, "end_line": 88}},
+    {"text": "And the 'long-term memory' the README brags about? Six lines. A dictionary. And a TODO that says, quote, 'make this persistent.' The cave paintings were more durable.", "citation": {"file": "memory/store.py", "start_line": 3, "end_line": 9}},
+    {"text": "So: verdict MIXED. Real craftsmanship in the scheduler, marketing everywhere else. Star it for the scheduler. Don't bet your startup on the memory.", "citation": null},
+    {"text": "That's the broadcast. Wallet's open if you've got questions — ten cents, answered on air. Repo Radio: we read the code so you don't have to. Stay curious.", "citation": null}
+  ]
+}

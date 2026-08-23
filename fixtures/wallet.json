@@ -1,0 +1,7 @@
+{
+  "user_id": "demo@reporadio.fm",
+  "credits": 100,
+  "ledger": [
+    {"ts": "2026-08-22T20:00:00Z", "type": "topup", "amount": 100, "ref": "cs_test_fixture_0001"}
+  ]
+}

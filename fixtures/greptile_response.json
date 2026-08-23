@@ -1,0 +1,46 @@
+{
+  "repository": "cavemanlabs/caveman",
+  "branch": "main",
+  "battery": [
+    {
+      "query": "In 3 sentences: what does this repo actually do, architecturally? Name the 2–3 core modules and what each owns.",
+      "message": "Caveman is an autonomous agent runtime built around three modules. core/agent.py owns the think-act loop and tool registry; core/scheduler.py owns task ordering via a decaying priority queue; llm/client.py owns all model calls by wrapping a hosted chat-completions API. memory/store.py exists but is a minimal in-process dictionary.",
+      "sources": [
+        {"filepath": "core/agent.py", "linestart": 12, "lineend": 38, "summary": "Agent class, tool registry, run loop"},
+        {"filepath": "core/scheduler.py", "linestart": 30, "lineend": 94, "summary": "Decaying priority scheduler"},
+        {"filepath": "llm/client.py", "linestart": 14, "lineend": 31, "summary": "ReasoningEngine wraps hosted chat API"}
+      ]
+    },
+    {
+      "query": "Is the core functionality implemented in this codebase, or mostly delegated to external APIs/SDKs? Name the specific files that prove it.",
+      "message": "The reasoning is fully delegated: llm/client.py's ReasoningEngine is a ~40-line HTTP wrapper around an external chat-completions endpoint; every decision the agent makes is a remote API call. The scheduling and loop mechanics in core/ are genuinely implemented locally.",
+      "sources": [
+        {"filepath": "llm/client.py", "linestart": 8, "lineend": 24, "summary": "Direct httpx POST to external chat API"},
+        {"filepath": "core/agent.py", "linestart": 27, "lineend": 37, "summary": "Local run loop implementation"}
+      ]
+    },
+    {
+      "query": "List claims the README makes that are NOT fully supported by the code (stubbed, TODO, missing). Cite files and lines.",
+      "message": "README claims 'long-term memory'; memory/store.py is a module-level dict with a TODO reading 'make this persistent' — nothing survives process exit. README claims a 'proprietary reasoning engine'; llm/client.py shows it is a thin wrapper over an external API.",
+      "sources": [
+        {"filepath": "memory/store.py", "linestart": 3, "lineend": 9, "summary": "In-memory dict, TODO: make this persistent"},
+        {"filepath": "llm/client.py", "linestart": 14, "lineend": 24, "summary": "'Reasoning engine' is an API wrapper"}
+      ]
+    },
+    {
+      "query": "What is the single most technically interesting or novel file/function here, and why? Cite it.",
+      "message": "core/scheduler.py: effective priority decays with queue age (priority * decay^age_minutes), so stale speculative tasks sink instead of starving new work — the inverse of classic aging. Periodic O(n) heap rebalance keeps amortized pop cost at O(log n). This pattern does not appear in the comparable agent frameworks.",
+      "sources": [
+        {"filepath": "core/scheduler.py", "linestart": 51, "lineend": 88, "summary": "Decay-based effective priority + rebalance + pop"}
+      ]
+    },
+    {
+      "query": "What are the sketchiest parts — untested, TODO-ridden, hardcoded, or security-questionable? Cite files and lines.",
+      "message": "memory/store.py is six effective lines with a persistence TODO. llm/client.py hardcodes the API URL and reads the key from env with no error handling; _parse does a bare json.loads on model output with no validation or retry. There is no test directory anywhere in the repo.",
+      "sources": [
+        {"filepath": "memory/store.py", "linestart": 3, "lineend": 9, "summary": "Stub memory with TODO"},
+        {"filepath": "llm/client.py", "linestart": 11, "lineend": 36, "summary": "Hardcoded URL, unvalidated JSON parse"}
+      ]
+    }
+  ]
+}
