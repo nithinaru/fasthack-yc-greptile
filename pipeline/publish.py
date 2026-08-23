@@ -97,6 +97,9 @@ def assemble_episode(
             "language": repo_pick.get("language") or "Unknown",
             "stars_at_airtime": int(repo_pick.get("stars_at_airtime", 0)),
             "velocity_per_hr": float(repo_pick.get("velocity_per_hr", 0)),
+            # optional extras for the UI repo panel (schema allows extra keys)
+            **({"description": repo_pick["description"]} if repo_pick.get("description") else {}),
+            **({"default_branch": repo_pick["default_branch"]} if repo_pick.get("default_branch") else {}),
         },
         "title": script["title"],
         "verdict": script["verdict"],

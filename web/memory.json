@@ -1,15 +1,54 @@
 {
-  "entries": [
+  "observations": [
     {
-      "episode_id": "ep-000",
-      "repo": "cavemanlabs/caveman",
+      "ts": "2026-08-23T21:24:33.135744+00:00",
+      "episode_id": "ep-001",
+      "repo": "fuxicodex/Fuxi",
+      "author": "fuxicodex",
+      "title": "Fuxi: The Ghost in the Shell?",
+      "verdict": "HYPE",
+      "stars_at_airtime": 1819,
+      "cited_files": [
+        "README.md",
+        "benchmark/REPORT.md",
+        "benchmark/run_claude.sh"
+      ],
+      "claims_checked": [
+        "This repository is not the agent's source tree at all -- it contains no Go (or any agent) implementation. The repo itself owns three things: the public docs/marketing site (README.md, docs/usage.md), ",
+        "Entirely delegated / absent from this repo. A `find` over all 206 files shows zero Go source files (despite the README claiming 'Built in Go') and the only *.py files are throwaway benchmark fixtures ",
+        "Nearly every functional claim is unverifiable because no implementation ships in the repo: 'self-contained ... Built in Go' (README.md:12-15) cannot be checked against any Go source, since none exists",
+        "benchmark/REPORT.md is the most technically interesting file, not for cleverness but for what it reveals under scrutiny: it presents itself as 'Real Client Environment Verification' with real CLI outp",
+        "The benchmark's own result artifacts are broken and leak the author's local machine path. benchmark/result-claude-claude-opus-5.json is invalid JSON -- python3's json.loads fails with 'Extra data: lin"
+      ],
+      "tags": [
+        "agent-framework",
+        "dev-tool"
+      ]
+    },
+    {
+      "ts": "2026-08-23T21:37:35.908637+00:00",
+      "episode_id": "ep-002",
+      "repo": "thedotmack/claude-mem",
+      "author": "thedotmack",
+      "title": "The Dot Mac's Claude-Mem: Memory Management Made Memorable",
       "verdict": "MIXED",
-      "ts": "2026-08-22T20:00:00Z",
-      "facts": [
-        "README claims full agent runtime; llm/client.py is a 40-line wrapper around a chat API",
-        "core/scheduler.py: priority queues with decay — genuinely novel, worth stealing",
-        "memory/store.py 'long-term memory' is a 6-line dict with TODO 'make this persistent'",
-        "4,000 stars in 3 days at airtime; category: agent-framework, sdk-wrapper"
+      "stars_at_airtime": 91607,
+      "cited_files": [
+        "README.md",
+        "src/sdk/hardened-options.ts",
+        "src/sdk/parser.ts",
+        "src/services/worker-service.ts"
+      ],
+      "claims_checked": [
+        "Three core pieces: an Observer/SDK layer (src/sdk + src/services/worker/ClaudeProvider.ts) that spawns a locked-down Claude Agent SDK session to watch Claude Code's tool calls and emit XML memory reco",
+        "Both. The actual summarization/observation intelligence is fully delegated: ClaudeProvider.ts imports `query` from `@anthropic-ai/claude-agent-sdk` and spawns a real Claude CLI subprocess per turn (a ",
+        "README line 239 claims 'Claude-Mem provides intelligent memory search through 4 MCP tools', but src/servers/mcp-server.ts registers 20 named tools in its `tools` array (important_workflow, search, tim",
+        "src/sdk/hardened-options.ts, function buildHardenedSdkOptions (lines 88-133). It's a defense-in-depth security harness for an LLM agent: since the Observer's system prompt merely asserts 'you have no ",
+        "src/sdk/parser.ts line 5 carries a self-admitted TODO: the entire observation pipeline parses free-form LLM text output with regex/XML string matching, tagged '(#2233): migrate to Anthropic tool-use A"
+      ],
+      "tags": [
+        "agent-framework",
+        "memory"
       ]
     }
   ]

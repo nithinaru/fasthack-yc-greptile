@@ -60,6 +60,8 @@ def refresh_stars(repos: list[dict]) -> list[dict]:
         repo["samples"].append({"ts": now, "stars": meta["stargazers_count"]})
         repo["language"] = meta.get("language")
         repo["url"] = meta.get("html_url")
+        repo["description"] = meta.get("description")
+        repo["default_branch"] = meta.get("default_branch")
     return repos
 
 

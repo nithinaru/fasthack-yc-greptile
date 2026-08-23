@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Repo Radio</title>
+    <link>/</link>
+    <description>We read the code of trending repos so you don't have to.</description>
+    <language>en-us</language>
+    <item>
+      <title>The Dot Mac's Claude-Mem: Memory Management Made Memorable</title>
+      <description>thedotmack/claude-mem — verdict MIXED. We read the code of trending repos so you don't have to.</description>
+      <guid isPermaLink="false">ep-002</guid>
+      <pubDate>Sun, 23 Aug 2026 00:00:00 +0000</pubDate>
+      <enclosure url="/audio/ep-002.mp3" length="0" type="audio/mpeg"/>
+    </item>
+    <item>
+      <title>Fuxi: The Ghost in the Shell?</title>
+      <description>fuxicodex/Fuxi — verdict HYPE. We read the code of trending repos so you don't have to.</description>
+      <guid isPermaLink="false">ep-001</guid>
+      <pubDate>Sun, 23 Aug 2026 00:00:00 +0000</pubDate>
+      <enclosure url="/audio/ep-001.mp3" length="0" type="audio/mpeg"/>
+    </item>
+    <item>
+      <title>Caveman: 4,000 stars and a six-line memory</title>
+      <description>cavemanlabs/caveman — verdict MIXED. We read the code of trending repos so you don't have to.</description>
+      <guid isPermaLink="false">ep-000</guid>
+      <pubDate>Sat, 22 Aug 2026 00:00:00 +0000</pubDate>
+      <enclosure url="/audio/ep-000.mp3" length="0" type="audio/mpeg"/>
+    </item>
+  </channel>
+</rss>

@@ -3,6 +3,7 @@
 import { createPlayer } from "./player.js";
 import { createSync } from "./sync.js";
 import { initWallet } from "./wallet.js";
+import { loadSeasonsData, renderSeasonList } from "./seasons.js";
 
 const CFG = window.RR_CONFIG;
 const $ = (id) => document.getElementById(id);
@@ -13,6 +14,7 @@ const state = {
   player: null,
   sync: null,
   qaAudio: null,      // native Audio element for Q&A answer playback
+  seasons: { tagsByEpisode: {}, queuedSeasons: [] }, // web/memory.json tags + web/seasons.json queue
 };
 
 // ── Episode discovery: probe /episodes/ep-000.json upward (no index contract) ──
@@ -58,27 +60,17 @@ function renderHero(ep) {
   document.title = `${ep.title} — Repo Radio 102.3 FM`;
 }
 
-// ── Episode list (sidebar) ──
+// ── Episode list (sidebar) ── grouped into seasons by category (seasons.js) ──
 function renderEpisodeList() {
   const el = $("episode-list");
-  el.innerHTML = "";
-  [...state.episodes].reverse().forEach((ep) => {
-    const active = state.episode && ep.id === state.episode.id;
-    const row = document.createElement("button");
-    row.className =
-      "w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/[.02] transition-colors" +
-      (active ? " bg-white/[.03]" : "");
-    row.style.borderTop = "1px solid var(--border)";
-    row.innerHTML = `
-      <span class="font-mono2 text-[11px]" style="color: var(--amber-dim)">${ep.id.replace("ep-", "EP ")}</span>
-      <span class="flex-1 min-w-0">
-        <span class="block text-[13px] truncate" style="color: var(--text)">${ep.repo?.full_name || ""}</span>
-        <span class="block font-mono2 text-[10px] truncate" style="color: var(--text-2)">${ep.title}</span>
-      </span>
-      <span class="w-2 h-2 rounded-full vdot-${ep.verdict} shrink-0" title="${ep.verdict}"></span>
-      ${active ? '<span class="eq paused" id="eq-now"><span></span><span></span><span></span><span></span><span></span></span>' : ""}`;
-    row.addEventListener("click", () => { if (!active) loadEpisode(ep.id); });
-    el.appendChild(row);
+  if (!state.episodes.length) { el.innerHTML = ""; return; }
+  renderSeasonList({
+    container: el,
+    episodes: state.episodes,
+    activeId: state.episode?.id,
+    tagsByEpisode: state.seasons.tagsByEpisode,
+    queuedSeasons: state.seasons.queuedSeasons,
+    onSelect: (id) => loadEpisode(id),
   });
 }
 
@@ -213,6 +205,7 @@ async function boot() {
     $("ep-title").textContent = "Dead air… no episodes found.";
     return;
   }
+  state.seasons = await loadSeasonsData(CFG);
   const want = new URLSearchParams(location.search).get("ep");
   await loadEpisode(want || state.episodes[state.episodes.length - 1].id);
   renderMemory();

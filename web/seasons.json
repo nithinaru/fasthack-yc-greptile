@@ -1,0 +1,68 @@
+{
+  "_comment": "Hand-derived from pipeline/watchlist.json (read-only) on 2026-08-23. Repos that already have an aired episode (fuxicodex/Fuxi -> ep-001, thedotmack/claude-mem -> ep-002) are excluded. velocity_per_hr is 0.0 where the watchlist only has one star sample so far. category is a best-honest classification from repo name/owner (no repo descriptions were available) — used only to sort queued repos into the matching season on the UI, never to fabricate an episode.",
+  "seasons": [
+    {
+      "category": "agent-framework",
+      "queued": [
+        {
+          "full_name": "Jakubantalik/thinking-orbs",
+          "stars": 2556,
+          "velocity_per_hr": 0.0,
+          "category": "agent-framework"
+        },
+        {
+          "full_name": "ShawnPana/phone-harness",
+          "stars": 1995,
+          "velocity_per_hr": 0.0,
+          "category": "agent-framework"
+        }
+      ]
+    },
+    {
+      "category": "dev-tool",
+      "queued": [
+        {
+          "full_name": "yc-software/qm",
+          "stars": 14103,
+          "velocity_per_hr": 0.0,
+          "category": "dev-tool"
+        },
+        {
+          "full_name": "penecho/penecho",
+          "stars": 2118,
+          "velocity_per_hr": 0.0,
+          "category": "dev-tool"
+        }
+      ]
+    },
+    {
+      "category": "ai-app",
+      "queued": [
+        {
+          "full_name": "elder-plinius/T3MP3ST",
+          "stars": 5651,
+          "velocity_per_hr": 0.0,
+          "category": "ai-app"
+        },
+        {
+          "full_name": "genspark-ai/genoffice",
+          "stars": 3541,
+          "velocity_per_hr": 0.0,
+          "category": "ai-app"
+        },
+        {
+          "full_name": "synthetic-sciences/openscience",
+          "stars": 3325,
+          "velocity_per_hr": 0.0,
+          "category": "ai-app"
+        },
+        {
+          "full_name": "guillaumemeyer/watermarks-remover",
+          "stars": 17397,
+          "velocity_per_hr": 0.0,
+          "category": "ai-app"
+        }
+      ]
+    }
+  ]
+}
