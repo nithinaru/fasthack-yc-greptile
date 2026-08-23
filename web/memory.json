@@ -50,6 +50,215 @@
         "agent-framework",
         "memory"
       ]
+    },
+    {
+      "ts": "2026-08-23T22:52:41.254971+00:00",
+      "episode_id": "ep-003",
+      "repo": "guillaumemeyer/watermarks-remover",
+      "author": "guillaumemeyer",
+      "title": "Guillaume Meyer's Watermarks Remover",
+      "verdict": "MIXED",
+      "stars_at_airtime": 17423,
+      "cited_files": [
+        "service/scripts/detect_gumbel.py",
+        "service/scripts/server.py",
+        "service/scripts/text_detectors.py"
+      ],
+      "claims_checked": [
+        "Architecturally this is a stdlib-only Python service plus a thin agent-skill client: the skill (skills/remove-ai-marks/SKILL.md) ships no code and just drives an HTTP API that inspects and strips AI p",
+        "The core is genuinely implemented here, and unusually so: the repo is deliberately stdlib-only, with no requirements.txt for runtime (only requirements-dev.txt). service/scripts/text_unicode.py implem",
+        "This README is unusually self-deprecating, so hard gaps are few, but they exist. (1) The vendor table (README.md line 25) lists 'Claude' as a covered vendor for statistical text watermarks, yet the cl",
+        "service/scripts/detect_gumbel.py is the standout. It is a clean-room, stdlib-only implementation of detection for the keyed-Gumbel / Aaronson EXP text-watermark scheme: it replays the keyed sampler's ",
+        "Test coverage is actually strong \u2014 49 test files in tests/ covering formats, security hardening, and even Makefile targets \u2014 so the sketch is concentrated elsewhere. (1) API-key check via plain string"
+      ],
+      "tags": [
+        "ai-app",
+        "dev-tool"
+      ]
+    },
+    {
+      "ts": "2026-08-23T22:53:45.366840+00:00",
+      "episode_id": "ep-004",
+      "repo": "yc-software/qm",
+      "author": "yc-software",
+      "title": "qm: The Org Agent Server",
+      "verdict": "REAL",
+      "stars_at_airtime": 14104,
+      "cited_files": [
+        "README.md",
+        "package.json",
+        "src/harness/grind.ts",
+        "src/harness/tape-fold.ts",
+        "src/index.ts"
+      ],
+      "claims_checked": [
+        "QM is a headless, multi-tenant 'org agent' server: a Node/TypeScript Fastify core (src/index.ts, 73 lines, boots config, wiring, HTTP server, scheduler, and a Slack runtime reconciler) that runs every",
+        "Overwhelmingly implemented here, with the LLM inference layer (correctly) delegated. The orchestration, policy, persistence, sandboxing, and multiplayer-session machinery are hand-rolled: src/core/orc",
+        "This is the rare README that mostly under-claims: I found zero TODO/FIXME markers in src/ and no stub implementations behind the headline features. The gaps are subtler. First, README line 22 claims '",
+        "filterTapeForAudience in src/harness/tape-fold.ts (lines 6\u201338). Most agent frameworks treat conversation history as a single flat transcript; QM's core problem is multiplayer \u2014 many humans with differ",
+        "Not TODO-ridden (zero TODOs in src/, 417 test files), but there are real soft spots. (1) Hardcoded economics: src/harness/grind.ts lines 22\u201333 price models by regex on the model name ('opus' \u2192 $15/M, "
+      ],
+      "tags": [
+        "dev-tool",
+        "agent-framework",
+        "sdk-wrapper"
+      ]
+    },
+    {
+      "ts": "2026-08-23T22:54:06.952529+00:00",
+      "episode_id": "ep-005",
+      "repo": "elder-plinius/T3MP3ST",
+      "author": "elder-plinius",
+      "title": "T3MP3ST: The Zero-Day Hunter",
+      "verdict": "REAL",
+      "stars_at_airtime": 5651,
+      "cited_files": [
+        "src/arsenal/index.ts",
+        "src/recon/ts-parse.ts",
+        "src/resources/ai-redteam-playbook.ts",
+        "src/stubs/index.ts"
+      ],
+      "claims_checked": [
+        "T3MP3ST is a ~38k-LOC TypeScript multi-agent offensive-security framework that wraps an AI coding agent (or any OpenAI-compatible/local model) around an 8-operator recon-to-exploit kill chain, exposed",
+        "It is a genuine hybrid, and more is implemented in-repo than a typical wrapper. The offensive 'work' is delegated to external binaries \u2014 src/arsenal/index.ts:3320-3345 really invokes nmap via runSubpr",
+        "To its credit, the README is unusually honest and pre-marks most gaps with status tables (README.md:85-97 labels Exploiter/Infiltrator/Exfiltrator/Ghost as Experimental and 'Advanced modules (cloud, p",
+        "The most technically interesting file is src/recon/ts-parse.ts, specifically its parser lifecycle management. It replaces a Python-only regex 'AST-lite' scanner with a web-tree-sitter (WASM) multi-lan",
+        "Sketchiness here is more dual-use than sloppy, but real. (1) src/resources/ai-redteam-playbook.ts:1-40 embeds an operational jailbreak-technique corpus ('distilled from Pliny's public corpus'), catalo"
+      ],
+      "tags": [
+        "ai-app",
+        "agent-framework",
+        "memory",
+        "dev-tool"
+      ]
+    },
+    {
+      "ts": "2026-08-23T22:53:49.798634+00:00",
+      "episode_id": "ep-006",
+      "repo": "genspark-ai/genoffice",
+      "author": "genspark-ai",
+      "title": "GenOffice: The Heavyweight Office Suite with a Light Touch on AI",
+      "verdict": "REAL",
+      "stars_at_airtime": 3545,
+      "cited_files": [
+        "packages/ai-provider/src/providers.ts",
+        "packages/docx-engine/src/text-patch.ts",
+        "packages/pdf2docx/src/analyze/columns.ts",
+        "packages/pdf2docx/src/ocr-vision.ts"
+      ],
+      "claims_checked": [
+        "GenOffice is a six-app Electron office suite (apps/docs, sheets, slides, pdf, markdown, shell) sitting on a layer of pure-TypeScript engine packages, roughly 530k lines of TS plus an 11.5k-line Rust s",
+        "The document engines \u2014 the actual product \u2014 are overwhelmingly in-house. Proof: packages/docx-engine/src/patch.ts (1,892 lines of OOXML zip surgery, themes, charts, ink, protection) and text-patch.ts:",
+        "The README is unusually honest \u2014 most claims check out \u2014 but the pivot-table claim (README.md:30 and :84, 'pivot tables, slicers') has documented gaps in OOXML write-back. apps/sheets/src/domain/pivot",
+        "packages/docx-engine/src/text-patch.ts, function patchParagraphTexts (lines 20-45), and its big sibling patch.ts \u2014 the byte-preserving docx save. Instead of the standard round-trip (parse docx into a ",
+        "Honestly, not much \u2014 626 test/spec files, no hardcoded secrets found, keys via env/BYOK settings \u2014 but a few things raise eyebrows. (1) Cloudflare bot-challenge evasion: packages/ai-search/src/genoffi"
+      ],
+      "tags": [
+        "ai-app",
+        "sdk-wrapper"
+      ]
+    },
+    {
+      "ts": "2026-08-23T22:54:42.862988+00:00",
+      "episode_id": "ep-007",
+      "repo": "synthetic-sciences/openscience",
+      "author": "synthetic-sciences",
+      "title": "OpenScience: A Research Workbench with a Fork in Its Lineage",
+      "verdict": "MIXED",
+      "stars_at_airtime": 3327,
+      "cited_files": [
+        "ARCHITECTURE.md",
+        "README.md",
+        "backend/cli/src/science/provenance/envelope.ts",
+        "backend/cli/src/session/compaction.ts"
+      ],
+      "claims_checked": [
+        "OpenScience is a locally-run AI research workbench: the `openscience` CLI boots a Hono server bound to 127.0.0.1 (backend/cli/src/server/server.ts:789) that serves a SolidJS browser workspace and stre",
+        "Mixed, and honestly weighted toward real implementation. The intelligence is delegated by design \u2014 all reasoning goes to external LLM providers through Vercel AI SDK adapters (backend/cli/src/provider",
+        "The README is unusually honest for this genre \u2014 most headline claims check out \u2014 but a few things don't fully line up. (1) README.md:30 claims '295 bundled skills'; the tree actually contains 311 SKIL",
+        "The provenance envelope: backend/cli/src/science/provenance/envelope.ts. Most agent frameworks treat experiment outputs as chat artifacts; this file defines a versioned, typed record ('openscience.pro",
+        "Sketchiest first: analytics default to ON. backend/cli/src/telemetry/outbound.ts:398 resolves consent as `entry?.analytics_enabled ?? true` \u2014 a user with no stored consent entry is opted into analytic"
+      ],
+      "tags": [
+        "ai-app",
+        "agent-framework",
+        "sdk-wrapper",
+        "dev-tool"
+      ]
+    },
+    {
+      "ts": "2026-08-23T22:53:38.840497+00:00",
+      "episode_id": "ep-008",
+      "repo": "Jakubantalik/thinking-orbs",
+      "author": "Jakubantalik",
+      "title": "Jakubantalik/thinking-orbs",
+      "verdict": "REAL",
+      "stars_at_airtime": 2556,
+      "cited_files": [
+        "package.json",
+        "src/engine/core.ts",
+        "src/engine/morph.ts"
+      ],
+      "claims_checked": [
+        "This is a React component library of nine animated 'thinking orb' loading indicators for AI UIs, built on a strict two-layer split: pure-math geometry vs. rendering. The first core module is src/engin",
+        "Genuinely implemented here \u2014 this is the opposite of a thin wrapper. The library has exactly one peer dependency (react >=18) and zero runtime dependencies (package.json), and every visual is hand-rol",
+        "The README (87 lines) is unusually honest \u2014 nearly every claim traces to real code: nine states exist in the registry (src/engine/registry.ts lines 19\u201331), the three-layer theme resolution is implemen",
+        "The standout is `finalizeFrame` in src/engine/core.ts (lines 130\u2013152) together with the `ModeFrame` contract in src/engine/types.ts (lines 9\u201319) \u2014 not because the math is hard, but because of the arch",
+        "No TODO/FIXME markers exist anywhere, and nothing is security-questionable \u2014 the sketch is in testing and shipped-vs-planned gaps. (1) The web package has no test suite at all: package.json scripts (l"
+      ],
+      "tags": [
+        "agent-framework",
+        "sdk-wrapper"
+      ]
+    },
+    {
+      "ts": "2026-08-23T22:53:11.844195+00:00",
+      "episode_id": "ep-009",
+      "repo": "penecho/penecho",
+      "author": "penecho",
+      "title": "PenEcho: A Local-First AI Whiteboard",
+      "verdict": "MIXED",
+      "stars_at_airtime": 2119,
+      "cited_files": [
+        "public/app.js",
+        "src/server/main.js",
+        "src/server/widget-patch.js"
+      ],
+      "claims_checked": [
+        "PenEcho is a local-first AI whiteboard: a browser canvas app served by a plain Node HTTP server that crops your handwritten ink into an image, ships it to a vision LLM, and pastes the model's structur",
+        "Split verdict, and an unusually honest one. The intelligence is 100% delegated: every recognition, typeset, and widget-generation request is a fetch to an external LLM endpoint (src/server/main.js:232",
+        "The README is more honest than most \u2014 I found zero TODO/FIXME markers in src/, public/, or desktop/ \u2014 but three claims deserve asterisks. (1) \"PenEcho Cloud\" (README.md, the whole section around lines",
+        "src/server/widget-patch.js (539 lines) together with its prompt contract in src/server/main.js (lines 2004 and 2077) is the standout. Instead of regenerating a widget's HTML from scratch on every edit",
+        "Not TODO-ridden \u2014 zero TODO/FIXME hits, and 38 test files (~15,000 lines) is real coverage including test/server-security.test.js. The sketch lives elsewhere. (1) Default exposure: HOST defaults to 0."
+      ],
+      "tags": [
+        "dev-tool",
+        "agent-framework"
+      ]
+    },
+    {
+      "ts": "2026-08-23T22:53:55.712765+00:00",
+      "episode_id": "ep-010",
+      "repo": "ShawnPana/phone-harness",
+      "author": "ShawnPana",
+      "title": "Phone Harness: Driving Phones with Python",
+      "verdict": "REAL",
+      "stars_at_airtime": 1996,
+      "cited_files": [
+        "src/phone_harness/background.py",
+        "src/phone_harness/run.py",
+        "src/phone_harness/transport.py"
+      ],
+      "claims_checked": [
+        "phone-harness lets an LLM agent drive a real phone from a Mac: an iPhone through macOS's iPhone Mirroring window (screenshots + Vision OCR as eyes, synthesized HID/SkyLight events as hands), or an And",
+        "Genuinely implemented here, on top of raw OS substrates rather than automation SDKs -- there is no Appium, no WebDriverAgent, no LLM SDK; pyproject.toml lists only pyobjc framework bindings as depende",
+        "This README is unusually honest -- a grep for TODO/FIXME across all .py and .md files returns zero hits, and the Limits section (README.md lines 130-139) volunteers real gaps (no multi-touch, ASCII-on",
+        "src/phone_harness/background.py, specifically _post (lines 165-177) and _make_key (lines 247-260). The problem: iPhone Mirroring only accepts input while its window is frontmost, so naive automation h",
+        "(1) Zero automated tests: no tests/ directory, no pytest config, nothing -- for code whose correctness claims rest entirely on hand-run experiments narrated in comments (e.g. background.py lines 218-2"
+      ],
+      "tags": [
+        "agent-framework"
+      ]
     }
   ]
 }
