@@ -120,15 +120,15 @@ class Script:
 
     def _generate_once(self, messages: list[dict]) -> str:
         from vllm import SamplingParams
-        from vllm.sampling_params import GuidedDecodingParams
 
-        from modal_apps.script_common import SCRIPT_JSON_SCHEMA
-
+        # Guided decoding (outlines) dropped — its pyairports dep is broken in
+        # this vllm build. The prompt demands strict JSON and the endpoint's
+        # parse-validate-retry(x2) loop catches drift. Sanctioned cut, BUILD_PLAN
+        # failure fallbacks.
         params = SamplingParams(
             temperature=0.7,
             top_p=0.9,
             max_tokens=2048,
-            guided_decoding=GuidedDecodingParams(json=SCRIPT_JSON_SCHEMA),
         )
         outputs = self.llm.chat(messages=messages, sampling_params=params)
         return outputs[0].outputs[0].text
