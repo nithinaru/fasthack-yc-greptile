@@ -1,28 +1,124 @@
 {
-  "_comment": "Curated candidate pool for the trending picker (HANDOFF §2). PLACEHOLDER entries — human: replace with 8-12 currently-hot repos tonight and refresh star samples. Each repo carries two timestamped star samples so velocity = Δstars/Δhours is computable offline.",
+  "_comment": "Live watchlist, sampled 2026-08-23. velocity = \u0394stars/\u0394hr between samples.",
   "repos": [
     {
-      "full_name": "cavemanlabs/caveman",
-      "note": "fixture repo (fake) — keep for USE_MOCKS runs",
+      "full_name": "guillaumemeyer/watermarks-remover",
+      "note": "live candidate 2026-08-23",
+      "language": "Python",
+      "url": "https://github.com/guillaumemeyer/watermarks-remover",
       "samples": [
-        { "ts": "2026-08-21T20:00:00Z", "stars": 3800 },
-        { "ts": "2026-08-22T02:00:00Z", "stars": 4100 }
+        {
+          "ts": "2026-08-23T21:03:00.705656+00:00",
+          "stars": 17397
+        }
       ]
     },
     {
-      "full_name": "openai/codex",
-      "note": "placeholder — hyped agent CLI",
+      "full_name": "yc-software/qm",
+      "note": "live candidate 2026-08-23",
+      "language": "TypeScript",
+      "url": "https://github.com/yc-software/qm",
       "samples": [
-        { "ts": "2026-08-21T20:00:00Z", "stars": 30000 },
-        { "ts": "2026-08-22T02:00:00Z", "stars": 30060 }
+        {
+          "ts": "2026-08-23T21:03:00.705656+00:00",
+          "stars": 14103
+        }
+      ]
+    },
+    {
+      "full_name": "elder-plinius/T3MP3ST",
+      "note": "live candidate 2026-08-23",
+      "language": "TypeScript",
+      "url": "https://github.com/elder-plinius/T3MP3ST",
+      "samples": [
+        {
+          "ts": "2026-08-23T21:03:00.705656+00:00",
+          "stars": 5651
+        }
+      ]
+    },
+    {
+      "full_name": "genspark-ai/genoffice",
+      "note": "live candidate 2026-08-23",
+      "language": "TypeScript",
+      "url": "https://github.com/genspark-ai/genoffice",
+      "samples": [
+        {
+          "ts": "2026-08-23T21:03:00.705656+00:00",
+          "stars": 3541
+        }
+      ]
+    },
+    {
+      "full_name": "synthetic-sciences/openscience",
+      "note": "live candidate 2026-08-23",
+      "language": "TypeScript",
+      "url": "https://github.com/synthetic-sciences/openscience",
+      "samples": [
+        {
+          "ts": "2026-08-23T21:03:00.705656+00:00",
+          "stars": 3325
+        }
+      ]
+    },
+    {
+      "full_name": "Jakubantalik/thinking-orbs",
+      "note": "live candidate 2026-08-23",
+      "language": "TypeScript",
+      "url": "https://github.com/Jakubantalik/thinking-orbs",
+      "samples": [
+        {
+          "ts": "2026-08-23T21:03:00.705656+00:00",
+          "stars": 2556
+        }
+      ]
+    },
+    {
+      "full_name": "penecho/penecho",
+      "note": "live candidate 2026-08-23",
+      "language": "JavaScript",
+      "url": "https://github.com/penecho/penecho",
+      "samples": [
+        {
+          "ts": "2026-08-23T21:03:00.705656+00:00",
+          "stars": 2118
+        }
+      ]
+    },
+    {
+      "full_name": "ShawnPana/phone-harness",
+      "note": "live candidate 2026-08-23",
+      "language": "Python",
+      "url": "https://github.com/ShawnPana/phone-harness",
+      "samples": [
+        {
+          "ts": "2026-08-23T21:03:00.705656+00:00",
+          "stars": 1995
+        }
+      ]
+    },
+    {
+      "full_name": "fuxicodex/Fuxi",
+      "note": "live candidate 2026-08-23",
+      "language": "Python",
+      "url": "https://github.com/fuxicodex/Fuxi",
+      "samples": [
+        {
+          "ts": "2026-08-23T21:03:00.705656+00:00",
+          "stars": 1816
+        }
       ]
     },
     {
       "full_name": "thedotmack/claude-mem",
-      "note": "placeholder — memory layer, good radio",
+      "note": "live candidate 2026-08-23",
+      "language": "JavaScript",
+      "url": "https://github.com/thedotmack/claude-mem",
       "samples": [
-        { "ts": "2026-08-21T20:00:00Z", "stars": 1200 },
-        { "ts": "2026-08-22T02:00:00Z", "stars": 1290 }
+        {
+          "ts": "2026-08-23T21:03:00.705656+00:00",
+          "stars": 91606
+        }
       ]
     }
   ]
