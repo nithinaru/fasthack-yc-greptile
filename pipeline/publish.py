@@ -158,6 +158,15 @@ def _modal_put(local: Path, remote: str) -> None:
 
 
 def _publish_modal(ep_json: Path, ep_mp3: Path, memory_json: Path, feed: Path, ep_id: str) -> None:
+    # Battery cache → Volume so the serve container's /api/ask can answer from
+    # cached findings while Greptile's /query endpoint is down.
+    try:
+        repo_dir = json.loads(ep_json.read_text())["repo"]["full_name"].replace("/", "__")
+        battery = Path(__file__).resolve().parent.parent / "runs" / repo_dir / "greptile.json"
+        if battery.exists():
+            _modal_put(battery, f"/runs/{repo_dir}/greptile.json")
+    except Exception as e:  # noqa: BLE001 — insurance upload, never fatal
+        print(f"  battery cache upload skipped: {e}", file=sys.stderr)
     _modal_put(ep_json, f"/static/episodes/{ep_id}.json")
     _modal_put(ep_mp3, f"/static/audio/{ep_id}.mp3")
     if memory_json.exists():

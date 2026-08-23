@@ -93,18 +93,49 @@ def ensure_indexed(repo: str, branch: str = "main", poll_s: int = 10, timeout_s:
 
 
 def query(repo: str, question: str, branch: str = "main", genius: bool = True) -> dict:
-    """One /query call → {'query', 'message', 'sources'}."""
-    resp = _request(
-        "POST",
-        f"{API}/query",
-        {
-            "messages": [{"role": "user", "content": question}],
-            "repositories": [{"remote": "github", "repository": repo, "branch": branch}],
-            "genius": genius,
-        },
-        timeout=180,
-    )
-    return {"query": question, "message": resp.get("message", ""), "sources": resp.get("sources", [])}
+    """One /query call → {'query', 'message', 'sources'}.
+
+    Greptile's /v2/query has been 404ing since ~14:55 PDT 2026-08-23 (route
+    outage — /v2/repositories still works). On any failure we degrade to the
+    cached battery findings for the repo so the on-air ask loop keeps working.
+    """
+    try:
+        resp = _request(
+            "POST",
+            f"{API}/query",
+            {
+                "messages": [{"role": "user", "content": question}],
+                "repositories": [{"remote": "github", "repository": repo, "branch": branch}],
+                "genius": genius,
+            },
+            timeout=180,
+        )
+        return {"query": question, "message": resp.get("message", ""), "sources": resp.get("sources", [])}
+    except Exception as e:  # noqa: BLE001 — outage must not kill the money loop
+        print(f"  greptile /query failed ({e}) — answering from cached findings", file=sys.stderr)
+        return _cached_answer(repo, question)
+
+
+def _cached_answer(repo: str, question: str) -> dict:
+    """Best battery finding for the question, from whichever cache exists:
+    local runs/, the Modal Volume (/data/runs in the serve container), or the
+    fixture. Picked by naive token overlap — good enough for a degraded mode."""
+    candidates = [
+        RUNS_DIR / repo.replace("/", "__") / "greptile.json",
+        Path("/data/runs") / repo.replace("/", "__") / "greptile.json",
+        FIXTURE,
+    ]
+    battery = []
+    for p in candidates:
+        if p.exists():
+            battery = json.loads(p.read_text()).get("battery", [])
+            if battery:
+                break
+    if not battery:
+        raise RuntimeError(f"Greptile /query down and no cached findings for {repo}")
+    qwords = {w for w in question.lower().split() if len(w) > 3}
+    best = max(battery, key=lambda b: len(qwords & set((b.get("message", "") + b.get("query", "")).lower().split())))
+    return {"query": question, "message": best.get("message", ""), "sources": best.get("sources", [])}
 
 
 def run_battery(repo: str, branch: str = "main", skip_index: bool = False) -> dict:
