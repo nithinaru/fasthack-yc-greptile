@@ -196,7 +196,12 @@ def _live_answer(job: dict) -> dict:
 
     finding = greptile.query(repo, job["question"], genius=False)
 
-    script = _post_json(settings.MODAL_SCRIPT_URL, {
+    # .env carries the app base URL; the ASGI app serves the generator at
+    # /script (same normalization as pipeline/script.py — the bare base 404s).
+    script_url = settings.MODAL_SCRIPT_URL.rstrip("/")
+    if not script_url.endswith("/script"):
+        script_url += "/script"
+    script = _post_json(script_url, {
         "mode": "answer",
         "question": job["question"],
         "repo_meta": episode["repo"],
