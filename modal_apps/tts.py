@@ -25,12 +25,22 @@ import os
 
 import modal
 
-from voice_common import (
-    SAMPLE_RATE,
-    build_response,
-    build_segment_entry,
-    synthesize_mock_response,
-)
+# In the Modal container voice_common.py is mounted flat at /root; locally it
+# lives in the modal_apps package.
+try:
+    from voice_common import (
+        SAMPLE_RATE,
+        build_response,
+        build_segment_entry,
+        synthesize_mock_response,
+    )
+except ImportError:
+    from modal_apps.voice_common import (
+        SAMPLE_RATE,
+        build_response,
+        build_segment_entry,
+        synthesize_mock_response,
+    )
 
 # Voice shortlist (A/B via {"voice": ...} in the body):
 #   am_michael - warm male FM-host read (default)
