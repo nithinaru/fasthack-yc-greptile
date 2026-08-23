@@ -12,6 +12,7 @@ Guards clean errors if URLs/keys are missing rather than crashing weirdly.
 """
 import json
 import logging
+import os
 import threading
 import time
 import uuid
@@ -20,10 +21,37 @@ import settings
 
 log = logging.getLogger("server.ask")
 
-# In-memory job store (fine for a single-process demo deploy). Jobs "complete"
-# on first status poll after a short simulated delay in mock mode.
+# Job store. In-memory locally; on Modal (MODAL_TASK_ID set) a shared
+# modal.Dict, because the status poll can land on a different container than
+# the one running the job (same cross-container issue as the wallet).
 _jobs: dict[str, dict] = {}
 _jobs_lock = threading.Lock()
+
+_jobs_dict = None
+
+
+def _get_jobs_dict():
+    global _jobs_dict
+    if _jobs_dict is not None:
+        return _jobs_dict
+    if not os.environ.get("MODAL_TASK_ID"):
+        return None
+    with _jobs_lock:
+        if _jobs_dict is None:
+            import modal
+
+            _jobs_dict = modal.Dict.from_name("repo-radio-jobs", create_if_missing=True)
+            log.info("job store: modal.Dict 'repo-radio-jobs'")
+    return _jobs_dict
+
+
+def _store_set(job_id: str, job: dict) -> None:
+    d = _get_jobs_dict()
+    if d is not None:
+        d[job_id] = job
+    else:
+        with _jobs_lock:
+            _jobs[job_id] = job
 
 MOCK_DELAY_S = 1.5
 
@@ -58,18 +86,20 @@ def _mock_qa_segment(question: str) -> dict:
 
 def create_job(user_id: str, episode_id: str, question: str) -> str:
     job_id = f"job-{uuid.uuid4().hex[:12]}"
-    with _jobs_lock:
-        _jobs[job_id] = {
-            "status": "pending",
-            "user_id": user_id,
-            "episode_id": episode_id,
-            "question": question,
-            "created": time.monotonic(),
-        }
+    _store_set(job_id, {
+        "status": "pending",
+        "user_id": user_id,
+        "episode_id": episode_id,
+        "question": question,
+        "created": time.time(),
+    })
     return job_id
 
 
 def get_job(job_id: str) -> dict | None:
+    d = _get_jobs_dict()
+    if d is not None:
+        return d.get(job_id)
     with _jobs_lock:
         return _jobs.get(job_id)
 
@@ -85,14 +115,14 @@ def run_job(job_id: str) -> None:
             qa = _mock_qa_segment(job["question"])
         else:
             qa = _live_answer(job)
-        with _jobs_lock:
-            job["status"] = "done"
-            job["qa_segment"] = qa
+        job["status"] = "done"
+        job["qa_segment"] = qa
+        _store_set(job_id, job)
     except Exception as e:
         log.exception("ask job %s failed", job_id)
-        with _jobs_lock:
-            job["status"] = "error"
-            job["error"] = str(e)
+        job["status"] = "error"
+        job["error"] = str(e)
+        _store_set(job_id, job)
 
 
 def _post_json(url: str, body: dict, timeout: float = 120.0) -> dict:
