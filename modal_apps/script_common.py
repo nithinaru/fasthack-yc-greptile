@@ -158,7 +158,8 @@ def build_messages(body: dict, host_prompt: str) -> list[dict]:
         if memory_digest:
             parts += [
                 "",
-                "HOST MEMORY DIGEST (include exactly one 'previously on' callback using this):",
+                "HOST MEMORY DIGEST — MANDATORY: your SECOND segment must open with the",
+                "exact words 'Previously on Repo Radio' and reference this digest:",
                 memory_digest,
             ]
         else:

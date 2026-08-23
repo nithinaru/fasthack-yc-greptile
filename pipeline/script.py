@@ -81,6 +81,26 @@ def _call_modal(payload: dict) -> dict:
         return json.load(resp)
 
 
+def _ensure_callback(script: dict, memory_digest: str) -> dict:
+    """PRD §7.3: a non-empty memory digest MUST yield an audible 'previously on'.
+    Qwen-7B sometimes drops the instruction, so if no segment says it, insert a
+    deterministic callback segment (no citation) right after the cold open,
+    spoken text derived from the digest's first bullet."""
+    if not memory_digest.strip():
+        return script
+    if any("previously on" in (s.get("text") or "").lower() for s in script["segments"]):
+        return script
+    first = memory_digest.strip().splitlines()[0]
+    # bullet shape: "- [ep-001, related category (…)] owner/repo — verdict X at N★; cited …"
+    import re
+    m = re.search(r"\]\s*(.+?)(?:;|$)", first)
+    note = (m.group(1) if m else first).replace("★", " stars").strip()
+    text = f"Previously on Repo Radio: {note}. Keep that one in mind — tonight's subject runs in the same circles."
+    script["segments"].insert(1, {"text": text, "citation": None})
+    print("  callback missing from model output — inserted deterministic 'previously on' segment", file=sys.stderr)
+    return script
+
+
 def write_script(repo_meta: dict, greptile_findings: list, memory_digest: str = "") -> dict:
     """repo_meta + 5 findings + memory digest → validated script dict."""
     if _use_mocks():
@@ -95,6 +115,7 @@ def write_script(repo_meta: dict, greptile_findings: list, memory_digest: str = 
     for attempt in range(1 + MAX_RETRIES):
         try:
             script = validate_script(_call_modal(payload))
+            script = _ensure_callback(script, memory_digest)
             LAST_GOOD.parent.mkdir(parents=True, exist_ok=True)
             LAST_GOOD.write_text(json.dumps(script, indent=2))
             return script
