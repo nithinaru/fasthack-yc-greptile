@@ -7,12 +7,68 @@ account at all.
 """
 import json
 import logging
+import os
+import threading
 import uuid
 
 import settings
 import wallet
 
 log = logging.getLogger("server.stripe")
+
+# --- Webhook idempotency store -------------------------------------------------
+# Stripe retries deliveries, and a replayed event must never double-credit.
+# Dedup on the Stripe event id. Inside a Modal container we use a shared
+# modal.Dict (SQLite-on-Volume is NOT shared across containers — that bug
+# already bit the wallet, see server/wallet.py). Locally/in tests an
+# in-process set is fine. Mark-then-credit: acceptable for the demo (worst
+# case a crash between mark and credit drops one credit, never doubles).
+_events_lock = threading.Lock()
+_events_dict = None  # shared modal.Dict when on Modal, else None
+_events_local: set[str] = set()  # local/test fallback
+
+
+def _get_events_dict():
+    """Return the shared modal.Dict of seen event ids when running inside a
+    Modal container, else None (in-process set). Mirrors wallet._get_dict."""
+    global _events_dict
+    if _events_dict is not None:
+        return _events_dict
+    if not os.environ.get("MODAL_TASK_ID"):  # set inside Modal containers only
+        return None
+    with _events_lock:
+        if _events_dict is None:
+            import modal
+
+            _events_dict = modal.Dict.from_name(
+                "repo-radio-stripe-events", create_if_missing=True
+            )
+            log.info("stripe event store: modal.Dict 'repo-radio-stripe-events'")
+    return _events_dict
+
+
+def _mark_event_seen(event_id: str) -> bool:
+    """Record event_id as processed. Returns True if it was NEW (proceed to
+    credit), False if we've already seen it (skip)."""
+    d = _get_events_dict()
+    if d is not None:
+        if d.get(event_id):
+            return False
+        d[event_id] = True  # mark-then-credit; see module comment above
+        return True
+    with _events_lock:
+        if event_id in _events_local:
+            return False
+        _events_local.add(event_id)
+        return True
+
+
+def _reset_events_for_tests() -> None:
+    """Test helper: forget all seen event ids (local backend only)."""
+    global _events_dict
+    with _events_lock:
+        _events_local.clear()
+        _events_dict = None
 
 
 def _keyless() -> bool:
@@ -84,5 +140,17 @@ def handle_webhook(payload: bytes, sig_header: str | None) -> None:
     if not user_id or credits <= 0:
         log.warning("webhook with missing/invalid metadata: %s", meta)
         return
-    wallet.credit(user_id, credits)
-    log.info("webhook credited %s +%d (%s)", user_id, credits, session.get("id", "cs_unknown"))
+
+    # Idempotency: Stripe retries deliveries; the same event must credit once.
+    # Real Stripe events always carry a top-level id ("evt_..."); fall back to
+    # the checkout session id for hand-rolled/mock payloads that omit it.
+    event_id = event.get("id") or session.get("id") or ""
+    if event_id and not _mark_event_seen(event_id):
+        log.info("webhook duplicate ignored: event=%s user=%s", event_id, user_id)
+        return
+
+    balance = wallet.credit(user_id, credits)
+    log.info(
+        "STRIPE CREDIT: user=%s +%d credits (balance=%d) event=%s",
+        user_id, credits, balance, event_id or "unknown",
+    )
