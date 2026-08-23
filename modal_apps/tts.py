@@ -44,7 +44,7 @@ MIN_CONTAINERS = int(os.environ.get("REPO_RADIO_TTS_MIN_CONTAINERS", "0"))
 app = modal.App("repo-radio-tts")
 
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.11")
     .apt_install("espeak-ng", "ffmpeg")
     .pip_install("kokoro>=0.9", "soundfile", "numpy", "torch", "fastapi[standard]")
     .env({"HF_HOME": "/models/hf"})  # cache HF weights in the mounted Volume

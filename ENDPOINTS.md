@@ -6,9 +6,9 @@ Record the three Modal URLs here (and mirror them into `.env`:
 
 | App | Env var | URL |
 |---|---|---|
-| `/script` (Qwen2.5-7B via vLLM) | `MODAL_SCRIPT_URL` | `https://<workspace>--repo-radio-script.modal.run` |
-| `/tts` (Kokoro-82M) | `MODAL_TTS_URL` | `https://<workspace>--repo-radio-tts.modal.run` |
-| `/serve` (FastAPI: wallet API + static site) | `MODAL_SERVE_URL` | `https://<workspace>--repo-radio-serve.modal.run` |
+| `/script` (Qwen2.5-7B via vLLM) | `MODAL_SCRIPT_URL` | `https://nithin-alaska--repo-radio-script-script-web.modal.run` |
+| `/tts` (Kokoro-82M) | `MODAL_TTS_URL` | `https://nithin-alaska--tts.modal.run` |
+| `/serve` (FastAPI: wallet API + static site) | `MODAL_SERVE_URL` | `https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run` |
 
 ---
 
@@ -17,7 +17,7 @@ Record the three Modal URLs here (and mirror them into `.env`:
 Strict JSON out: `{"title","verdict":"HYPE|REAL|MIXED","segments":[{"text","citation":{"file","start_line","end_line"}|null}]}`
 
 ```bash
-curl -sS "$MODAL_SCRIPT_URL" \
+curl -sS "https://nithin-alaska--repo-radio-script-script-web.modal.run" \
   -H "content-type: application/json" \
   -d '{
     "repo_meta": {
@@ -41,7 +41,7 @@ curl -sS "$MODAL_SCRIPT_URL" \
 Answer mode (call-in questions):
 
 ```bash
-curl -sS "$MODAL_SCRIPT_URL" \
+curl -sS "https://nithin-alaska--repo-radio-script-script-web.modal.run" \
   -H "content-type: application/json" \
   -d '{
     "mode": "answer",
@@ -58,7 +58,7 @@ curl -sS "$MODAL_SCRIPT_URL" \
 In: `{segments:[text,…]}`. Out: per-segment audio (b64) + `duration_s` each.
 
 ```bash
-curl -sS "$MODAL_TTS_URL" \
+curl -sS "https://nithin-alaska--tts.modal.run" \
   -H "content-type: application/json" \
   -d '{
     "segments": [
@@ -72,12 +72,12 @@ curl -sS "$MODAL_TTS_URL" \
 
 ## /serve — wallet API + static site (PRD §3.3.3 / §3.4)
 
-Static site: `GET $MODAL_SERVE_URL/static/index.html`, `/static/episodes/ep-NNN.json`, `/static/audio/ep-NNN.mp3`, `/static/feed.xml`, `/static/memory.json`.
+Static site: `GET https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/static/index.html`, `/static/episodes/ep-NNN.json`, `/static/audio/ep-NNN.mp3`, `/static/feed.xml`, `/static/memory.json`.
 
 ### POST /api/topup
 
 ```bash
-curl -sS -X POST "$MODAL_SERVE_URL/api/topup" \
+curl -sS -X POST "https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/api/topup" \
   -H "content-type: application/json" \
   -d '{"user_id": "demo@example.com", "tier": 1}' | python3 -m json.tool
 # -> {"checkout_url": "https://checkout.stripe.com/..."}
@@ -86,7 +86,7 @@ curl -sS -X POST "$MODAL_SERVE_URL/api/topup" \
 ### POST /api/stripe/webhook
 
 Registered in the Stripe dashboard (test mode → Developers → Webhooks →
-`$MODAL_SERVE_URL/api/stripe/webhook`), signed with `STRIPE_WEBHOOK_SECRET`.
+`https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/api/stripe/webhook`), signed with `STRIPE_WEBHOOK_SECRET`.
 Not curl-able directly in test mode without a real signed payload — use
 `stripe trigger checkout.session.completed` or the dashboard's "send test
 webhook" against this URL.
@@ -94,14 +94,14 @@ webhook" against this URL.
 ### GET /api/wallet/{user_id}
 
 ```bash
-curl -sS "$MODAL_SERVE_URL/api/wallet/demo@example.com" | python3 -m json.tool
+curl -sS "https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/api/wallet/demo@example.com" | python3 -m json.tool
 # -> {"credits": 10}
 ```
 
 ### POST /api/ask
 
 ```bash
-curl -sS -X POST "$MODAL_SERVE_URL/api/ask" \
+curl -sS -X POST "https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/api/ask" \
   -H "content-type: application/json" \
   -d '{"user_id": "demo@example.com", "episode_id": "ep-000", "question": "Is the memory really just a dict?"}' \
   -i
@@ -111,6 +111,6 @@ curl -sS -X POST "$MODAL_SERVE_URL/api/ask" \
 ### GET /api/ask/{job_id}
 
 ```bash
-curl -sS "$MODAL_SERVE_URL/api/ask/<job_id>" | python3 -m json.tool
+curl -sS "https://nithin-alaska--repo-radio-serve-fastapi-app.modal.run/api/ask/<job_id>" | python3 -m json.tool
 # -> {"status": "pending"} | {"status": "done", "qa_segment": {...}}
 ```
