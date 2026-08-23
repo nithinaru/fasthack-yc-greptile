@@ -64,9 +64,15 @@ def topup(req: TopupRequest):
 
 @app.post("/api/stripe/webhook")
 async def stripe_webhook(request: Request):
+    from starlette.concurrency import run_in_threadpool
+
     payload = await request.body()
     try:
-        stripe_pay.handle_webhook(payload, request.headers.get("stripe-signature"))
+        # Threadpool: handle_webhook uses sync modal.Dict ops, which Modal
+        # complains about (and may break) when run directly on the event loop.
+        await run_in_threadpool(
+            stripe_pay.handle_webhook, payload, request.headers.get("stripe-signature")
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {}
