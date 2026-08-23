@@ -1,0 +1,29 @@
+{
+  "observations": [
+    {
+      "ts": "2026-08-23T21:24:33.135744+00:00",
+      "episode_id": "ep-001",
+      "repo": "fuxicodex/Fuxi",
+      "author": "fuxicodex",
+      "title": "Fuxi: The Ghost in the Shell?",
+      "verdict": "HYPE",
+      "stars_at_airtime": 1819,
+      "cited_files": [
+        "README.md",
+        "benchmark/REPORT.md",
+        "benchmark/run_claude.sh"
+      ],
+      "claims_checked": [
+        "This repository is not the agent's source tree at all -- it contains no Go (or any agent) implementation. The repo itself owns three things: the public docs/marketing site (README.md, docs/usage.md), ",
+        "Entirely delegated / absent from this repo. A `find` over all 206 files shows zero Go source files (despite the README claiming 'Built in Go') and the only *.py files are throwaway benchmark fixtures ",
+        "Nearly every functional claim is unverifiable because no implementation ships in the repo: 'self-contained ... Built in Go' (README.md:12-15) cannot be checked against any Go source, since none exists",
+        "benchmark/REPORT.md is the most technically interesting file, not for cleverness but for what it reveals under scrutiny: it presents itself as 'Real Client Environment Verification' with real CLI outp",
+        "The benchmark's own result artifacts are broken and leak the author's local machine path. benchmark/result-claude-claude-opus-5.json is invalid JSON -- python3's json.loads fails with 'Extra data: lin"
+      ],
+      "tags": [
+        "agent-framework",
+        "dev-tool"
+      ]
+    }
+  ]
+}

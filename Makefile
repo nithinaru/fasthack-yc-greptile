@@ -5,7 +5,7 @@ PYTHON ?= python3
 -include .env
 export
 
-.PHONY: smoke bake-episode serve-local fixtures publish
+.PHONY: smoke bake-episode serve-local fixtures publish test-money snapshot demo-local
 
 smoke:
 	$(PYTHON) scripts/smoke.py
@@ -30,3 +30,35 @@ publish:
 	modal deploy modal_apps/script.py
 	modal deploy modal_apps/tts.py
 	modal deploy modal_apps/serve.py
+
+# Headless end-to-end money-loop verifier against the deployed MODAL_SERVE_URL:
+# wallet baseline -> topup checkout_url -> hand-signed Stripe webhook -> credit
+# -> ask debit -> optional answer poll. Exit 0 iff all non-BLOCKED steps pass.
+test-money:
+	$(PYTHON) scripts/test_money.py
+
+# Self-contained offline copy of the site for the wifi-off demo fallback.
+# demo_backup/site/  — full static site (index.html, config.js, js/, vendor/, all episodes, all audio, memory.json, feed.xml)
+# demo_backup/live/  — extra insurance: ep-001 pulled straight from the live public Modal URL
+snapshot:
+	mkdir -p demo_backup/site/js demo_backup/site/episodes demo_backup/site/audio demo_backup/live/episodes demo_backup/live/audio
+	cp web/index.html demo_backup/site/
+	cp web/config.js demo_backup/site/
+	cp -r web/js/. demo_backup/site/js/
+	cp -r web/vendor demo_backup/site/
+	cp web/episodes/*.json demo_backup/site/episodes/
+	cp web/audio/*.mp3 demo_backup/site/audio/
+	cp web/memory.json demo_backup/site/
+	cp web/feed.xml demo_backup/site/
+	@if [ -z "$(MODAL_SERVE_URL)" ]; then \
+		echo "snapshot: MODAL_SERVE_URL not set (.env) — skipping demo_backup/live/ curl insurance"; \
+	else \
+		curl -fsSL "$(MODAL_SERVE_URL)/episodes/ep-001.json" -o demo_backup/live/episodes/ep-001.json && \
+		curl -fsSL "$(MODAL_SERVE_URL)/audio/ep-001.mp3" -o demo_backup/live/audio/ep-001.mp3 && \
+		echo "snapshot: pulled live ep-001 into demo_backup/live/"; \
+	fi
+	@echo "snapshot: demo_backup/site/ and demo_backup/live/ ready"
+
+# Zero-network demo server: serves the self-contained snapshot (falls back to web/ if not baked yet).
+demo-local:
+	bash scripts/demo_local.sh

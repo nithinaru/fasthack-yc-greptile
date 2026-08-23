@@ -7,10 +7,16 @@ node_modules/
 runs/
 runs/**/*.mp3
 .DS_Store
-demo_backup/
 *.db
 *.db-journal
 
 # fixture/web audio must ship — do not ignore
 !fixtures/audio/*.mp3
 !web/audio/*.mp3
+
+# demo_backup/: site/ + live/ (the wifi-off demo snapshot: JSON/MP3/HTML) are
+# committable, but screen recordings stay ignored everywhere under it.
+demo_backup/*.mov
+demo_backup/*.mp4
+demo_backup/**/*.mov
+demo_backup/**/*.mp4
