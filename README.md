@@ -72,7 +72,7 @@ make publish
 
 ## Contributors
 
-Built by [Nithin Aruswamy](https://github.com/nithinaru) with [OpenAI Codex](https://openai.com/codex).
+Built by [Nithin Aruswamy](https://github.com/nithinaru) with [OpenAI Codex](https://openai.com/codex) and [Claude](https://www.anthropic.com/claude).
 
 ---
 
